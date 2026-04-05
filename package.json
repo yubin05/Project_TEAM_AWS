@@ -1,0 +1,13 @@
+{
+  "name": "travel-booking-app",
+  "version": "1.0.0",
+  "description": "야놀자 스타일 여행 및 숙박 예약 앱",
+  "scripts": {
+    "install": "cd backend && npm install",
+    "build": "cd backend && npm run build",
+    "start": "cd backend && npm start",
+    "dev": "cd backend && npm run dev",
+    "seed": "cd backend && npm run seed",
+    "setup": "npm run install && npm run seed && npm run build"
+  }
+}
