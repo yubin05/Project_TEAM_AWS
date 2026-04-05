@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>야놀자 - 여행 및 숙박 예약</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header" id="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <span class="logo-icon">✈️</span>
+        <span class="logo-text">야놀자</span>
+      </a>
+      <nav class="nav">
+        <a href="#" class="nav-link" data-page="home">홈</a>
+        <a href="#" class="nav-link" data-page="search">숙소 검색</a>
+        <a href="#" class="nav-link" data-page="bookings" id="nav-bookings" style="display:none">내 예약</a>
+        <a href="#" class="nav-link" data-page="wishlist" id="nav-wishlist" style="display:none">위시리스트</a>
+      </nav>
+      <div class="header-actions">
+        <div id="auth-buttons">
+          <button class="btn btn-outline" id="btn-login">로그인</button>
+          <button class="btn btn-primary" id="btn-register">회원가입</button>
+        </div>
+        <div id="user-menu" style="display:none">
+          <div class="user-avatar" id="user-avatar-btn">
+            <span id="user-initials">U</span>
+          </div>
+          <div class="user-dropdown" id="user-dropdown">
+            <div class="user-info">
+              <strong id="user-name-display">사용자</strong>
+              <span id="user-email-display">user@email.com</span>
+            </div>
+            <hr>
+            <a href="#" data-page="bookings">내 예약 관리</a>
+            <a href="#" data-page="wishlist">위시리스트</a>
+            <a href="#" data-page="profile">프로필 설정</a>
+            <hr>
+            <a href="#" id="btn-logout">로그아웃</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content">
+    <!-- Home Page -->
+    <div id="page-home" class="page active">
+      <!-- Hero Section -->
+      <section class="hero">
+        <div class="hero-content">
+          <h1>특별한 여행의 시작</h1>
+          <p>전국 최고의 숙소를 최저가로 예약하세요</p>
+          <div class="search-box">
+            <div class="search-field">
+              <label>여행지</label>
+              <input type="text" id="hero-city" placeholder="도시 또는 지역 입력" autocomplete="off">
+              <div class="autocomplete-list" id="city-suggestions"></div>
+            </div>
+            <div class="search-field">
+              <label>체크인</label>
+              <input type="date" id="hero-checkin">
+            </div>
+            <div class="search-field">
+              <label>체크아웃</label>
+              <input type="date" id="hero-checkout">
+            </div>
+            <div class="search-field">
+              <label>인원</label>
+              <select id="hero-guests">
+                <option value="1">1명</option>
+                <option value="2" selected>2명</option>
+                <option value="3">3명</option>
+                <option value="4">4명</option>
+                <option value="5">5명 이상</option>
+              </select>
+            </div>
+            <button class="btn btn-search" id="btn-hero-search">검색</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Categories -->
+      <section class="section categories-section">
+        <div class="container">
+          <h2 class="section-title">숙소 유형</h2>
+          <div class="categories-grid">
+            <div class="category-card" data-category="hotel">
+              <div class="category-icon">🏨</div>
+              <span>호텔</span>
+            </div>
+            <div class="category-card" data-category="motel">
+              <div class="category-icon">🏩</div>
+              <span>모텔</span>
+            </div>
+            <div class="category-card" data-category="pension">
+              <div class="category-icon">🏡</div>
+              <span>펜션</span>
+            </div>
+            <div class="category-card" data-category="guesthouse">
+              <div class="category-icon">🏠</div>
+              <span>게스트하우스</span>
+            </div>
+            <div class="category-card" data-category="resort">
+              <div class="category-icon">🌴</div>
+              <span>리조트</span>
+            </div>
+            <div class="category-card" data-category="camping">
+              <div class="category-icon">⛺</div>
+              <span>캠핑</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Popular Regions -->
+      <section class="section">
+        <div class="container">
+          <h2 class="section-title">인기 여행지</h2>
+          <div class="regions-grid" id="regions-grid">
+            <div class="region-card" data-city="서울">
+              <div class="region-img" style="background:linear-gradient(135deg,#667eea,#764ba2)">🏙️</div>
+              <span>서울</span>
+            </div>
+            <div class="region-card" data-city="제주">
+              <div class="region-img" style="background:linear-gradient(135deg,#11998e,#38ef7d)">🌊</div>
+              <span>제주</span>
+            </div>
+            <div class="region-card" data-city="부산">
+              <div class="region-img" style="background:linear-gradient(135deg,#f093fb,#f5576c)">🌅</div>
+              <span>부산</span>
+            </div>
+            <div class="region-card" data-city="강릉">
+              <div class="region-img" style="background:linear-gradient(135deg,#4facfe,#00f2fe)">🌲</div>
+              <span>강릉</span>
+            </div>
+            <div class="region-card" data-city="경주">
+              <div class="region-img" style="background:linear-gradient(135deg,#fa709a,#fee140)">🏯</div>
+              <span>경주</span>
+            </div>
+            <div class="region-card" data-city="여수">
+              <div class="region-img" style="background:linear-gradient(135deg,#30cfd0,#667eea)">✨</div>
+              <span>여수</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Featured Hotels -->
+      <section class="section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">인기 숙소</h2>
+            <a href="#" class="see-all" data-page="search">전체보기</a>
+          </div>
+          <div class="hotels-grid" id="featured-hotels">
+            <div class="loading-spinner">숙소를 불러오는 중...</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Search Page -->
+    <div id="page-search" class="page">
+      <div class="container search-page">
+        <div class="search-filters">
+          <h3>필터</h3>
+          <div class="filter-section">
+            <label>숙소 유형</label>
+            <div class="filter-checkboxes">
+              <label><input type="checkbox" value="hotel"> 호텔</label>
+              <label><input type="checkbox" value="motel"> 모텔</label>
+              <label><input type="checkbox" value="pension"> 펜션</label>
+              <label><input type="checkbox" value="guesthouse"> 게스트하우스</label>
+              <label><input type="checkbox" value="resort"> 리조트</label>
+              <label><input type="checkbox" value="camping"> 캠핑</label>
+            </div>
+          </div>
+          <div class="filter-section">
+            <label>1박 가격</label>
+            <div class="price-range">
+              <input type="number" id="filter-min-price" placeholder="최솟값" min="0" step="10000">
+              <span>~</span>
+              <input type="number" id="filter-max-price" placeholder="최댓값" min="0" step="10000">
+            </div>
+          </div>
+          <div class="filter-section">
+            <label>편의시설</label>
+            <div class="filter-checkboxes">
+              <label><input type="checkbox" value="수영장"> 수영장</label>
+              <label><input type="checkbox" value="주차장"> 주차장</label>
+              <label><input type="checkbox" value="와이파이"> 와이파이</label>
+              <label><input type="checkbox" value="조식포함"> 조식포함</label>
+              <label><input type="checkbox" value="스파"> 스파</label>
+              <label><input type="checkbox" value="바베큐"> 바베큐</label>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-full" id="btn-apply-filter">필터 적용</button>
+          <button class="btn btn-outline btn-full" id="btn-reset-filter">초기화</button>
+        </div>
+        <div class="search-results">
+          <div class="search-header">
+            <div class="search-bar-inline">
+              <input type="text" id="search-city-input" placeholder="도시 입력">
+              <input type="date" id="search-checkin-input">
+              <input type="date" id="search-checkout-input">
+              <button class="btn btn-primary" id="btn-search-inline">검색</button>
+            </div>
+            <div class="sort-bar">
+              <span id="search-result-count">숙소 검색</span>
+              <select id="sort-select">
+                <option value="popular">인기순</option>
+                <option value="rating">평점순</option>
+                <option value="price_asc">낮은 가격순</option>
+                <option value="price_desc">높은 가격순</option>
+              </select>
+            </div>
+          </div>
+          <div class="hotels-list" id="search-results-list">
+            <div class="empty-state">검색 조건을 입력하고 숙소를 찾아보세요.</div>
+          </div>
+          <div class="pagination" id="search-pagination"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hotel Detail Page -->
+    <div id="page-hotel-detail" class="page">
+      <div id="hotel-detail-content"></div>
+    </div>
+
+    <!-- Booking Page -->
+    <div id="page-booking" class="page">
+      <div class="container booking-container">
+        <h2>예약 하기</h2>
+        <div class="booking-layout">
+          <div class="booking-form-section">
+            <div class="booking-summary-card" id="booking-summary"></div>
+            <form id="booking-form">
+              <div class="form-section">
+                <h3>예약 정보</h3>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>체크인 날짜</label>
+                    <input type="date" id="book-checkin" required>
+                  </div>
+                  <div class="form-group">
+                    <label>체크아웃 날짜</label>
+                    <input type="date" id="book-checkout" required>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>인원 수</label>
+                  <select id="book-guests">
+                    <option value="1">1명</option>
+                    <option value="2" selected>2명</option>
+                    <option value="3">3명</option>
+                    <option value="4">4명</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label>특별 요청사항 (선택)</label>
+                  <textarea id="book-requests" rows="3" placeholder="특별한 요청사항을 입력해주세요..."></textarea>
+                </div>
+              </div>
+              <div class="price-breakdown" id="price-breakdown"></div>
+              <button type="submit" class="btn btn-primary btn-full btn-large">예약 확정하기</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- My Bookings Page -->
+    <div id="page-bookings" class="page">
+      <div class="container">
+        <h2 class="page-title">내 예약</h2>
+        <div class="tabs">
+          <button class="tab active" data-status="">전체</button>
+          <button class="tab" data-status="confirmed">확정</button>
+          <button class="tab" data-status="pending">대기중</button>
+          <button class="tab" data-status="cancelled">취소</button>
+          <button class="tab" data-status="completed">완료</button>
+        </div>
+        <div id="bookings-list"></div>
+      </div>
+    </div>
+
+    <!-- Wishlist Page -->
+    <div id="page-wishlist" class="page">
+      <div class="container">
+        <h2 class="page-title">위시리스트</h2>
+        <div id="wishlist-list" class="hotels-grid"></div>
+      </div>
+    </div>
+
+    <!-- Profile Page -->
+    <div id="page-profile" class="page">
+      <div class="container profile-container">
+        <h2 class="page-title">프로필 설정</h2>
+        <form id="profile-form">
+          <div class="form-group">
+            <label>이름</label>
+            <input type="text" id="profile-name" required>
+          </div>
+          <div class="form-group">
+            <label>이메일</label>
+            <input type="email" id="profile-email" disabled>
+          </div>
+          <div class="form-group">
+            <label>전화번호</label>
+            <input type="tel" id="profile-phone" placeholder="010-0000-0000">
+          </div>
+          <button type="submit" class="btn btn-primary">저장하기</button>
+        </form>
+        <hr>
+        <form id="password-form">
+          <h3>비밀번호 변경</h3>
+          <div class="form-group">
+            <label>현재 비밀번호</label>
+            <input type="password" id="current-password" required>
+          </div>
+          <div class="form-group">
+            <label>새 비밀번호</label>
+            <input type="password" id="new-password" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label>새 비밀번호 확인</label>
+            <input type="password" id="confirm-password" required>
+          </div>
+          <button type="submit" class="btn btn-outline">비밀번호 변경</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="modal-overlay"></div>
+
+  <!-- Login Modal -->
+  <div class="modal" id="modal-login">
+    <div class="modal-header">
+      <h3>로그인</h3>
+      <button class="modal-close" data-modal="modal-login">&times;</button>
+    </div>
+    <form id="login-form">
+      <div class="form-group">
+        <label>이메일</label>
+        <input type="email" id="login-email" placeholder="이메일 입력" required>
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="login-password" placeholder="비밀번호 입력" required>
+      </div>
+      <div class="form-error" id="login-error"></div>
+      <button type="submit" class="btn btn-primary btn-full">로그인</button>
+    </form>
+    <div class="modal-footer">
+      <span>계정이 없으신가요?</span>
+      <a href="#" id="switch-to-register">회원가입</a>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal" id="modal-register">
+    <div class="modal-header">
+      <h3>회원가입</h3>
+      <button class="modal-close" data-modal="modal-register">&times;</button>
+    </div>
+    <form id="register-form">
+      <div class="form-group">
+        <label>이름</label>
+        <input type="text" id="reg-name" placeholder="이름 입력" required>
+      </div>
+      <div class="form-group">
+        <label>이메일</label>
+        <input type="email" id="reg-email" placeholder="이메일 입력" required>
+      </div>
+      <div class="form-group">
+        <label>비밀번호</label>
+        <input type="password" id="reg-password" placeholder="6자 이상" required minlength="6">
+      </div>
+      <div class="form-group">
+        <label>전화번호</label>
+        <input type="tel" id="reg-phone" placeholder="010-0000-0000">
+      </div>
+      <div class="form-group">
+        <label>가입 유형</label>
+        <select id="reg-role">
+          <option value="user">일반 사용자</option>
+          <option value="host">숙소 호스트</option>
+        </select>
+      </div>
+      <div class="form-error" id="register-error"></div>
+      <button type="submit" class="btn btn-primary btn-full">가입하기</button>
+    </form>
+    <div class="modal-footer">
+      <span>이미 계정이 있으신가요?</span>
+      <a href="#" id="switch-to-login">로그인</a>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div>
+          <h4>✈️ 야놀자</h4>
+          <p>대한민국 No.1 여행 및 숙박 예약 플랫폼</p>
+        </div>
+        <div>
+          <h4>서비스</h4>
+          <ul>
+            <li><a href="#">국내 숙소</a></li>
+            <li><a href="#">해외 호텔</a></li>
+            <li><a href="#">레저/액티비티</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>고객 지원</h4>
+          <ul>
+            <li><a href="#">공지사항</a></li>
+            <li><a href="#">자주 묻는 질문</a></li>
+            <li><a href="#">1:1 문의</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4>회사 정보</h4>
+          <ul>
+            <li><a href="#">이용약관</a></li>
+            <li><a href="#">개인정보처리방침</a></li>
+            <li><a href="#">사업자 정보</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>&copy; 2024 야놀자 Travel. All rights reserved.</p>
+      </div>
+    </div>
+  </footer>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
