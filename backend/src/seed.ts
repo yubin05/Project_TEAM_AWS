@@ -13,15 +13,15 @@ async function seed() {
   const userId   = uuidv4();
 
   // ── 유저 ──────────────────────────────────────────────────────────────────
-  await pool.execute(
+  await pool.query(
     `INSERT IGNORE INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)`,
     [adminId, 'admin@travel.com', hashedPw, '관리자', '010-0000-0000', 'admin']
   );
-  await pool.execute(
+  await pool.query(
     `INSERT IGNORE INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)`,
     [hostId, 'host@travel.com', hashedPw, '호스트김', '010-1111-2222', 'host']
   );
-  await pool.execute(
+  await pool.query(
     `INSERT IGNORE INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)`,
     [userId, 'user@travel.com', hashedPw, '여행자이', '010-3333-4444', 'user']
   );
@@ -103,7 +103,7 @@ async function seed() {
   ];
 
   for (const h of hotelsData) {
-    await pool.execute(
+    await pool.query(
       `INSERT IGNORE INTO hotels
          (id, host_id, name, description, category, address, city, region,
           latitude, longitude, amenities, images, check_in_time, check_out_time, rating, review_count)
@@ -123,7 +123,7 @@ async function seed() {
     ];
 
     for (const r of roomTypes) {
-      await pool.execute(
+      await pool.query(
         `INSERT IGNORE INTO rooms
            (id, hotel_id, name, description, type, capacity, price_per_night, discount_rate, images, amenities)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
