@@ -302,7 +302,7 @@ export async function checkRoomAvailability(req: Request, res: Response): Promis
        WHERE room_id = ? AND hotel_id = ?
        AND status IN ('confirmed','pending')
        AND check_in_date < ? AND check_out_date > ?`,
-      [roomId, hotelId, check_out, check_in]
+      [roomId, hotelId, String(check_out), String(check_in)]
     );
     const count = ((rows as RowDataPacket[])[0] as { count: number }).count;
 
