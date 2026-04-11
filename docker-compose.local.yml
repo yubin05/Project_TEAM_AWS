@@ -41,6 +41,11 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: localpassword
       MYSQL_DATABASE:      travel_booking
+    command: >
+      --innodb-buffer-pool-size=128M
+      --innodb-log-buffer-size=8M
+      --max-connections=50
+      --performance-schema=OFF
     ports:
       - "3306:3306"
     volumes:
@@ -59,7 +64,7 @@ services:
     image: amazon/dynamodb-local:latest
     ports:
       - "8000:8000"
-    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    command: "-Xmx128m -jar DynamoDBLocal.jar -sharedDb -inMemory"
     networks:
       - app-network
 
