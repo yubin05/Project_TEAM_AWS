@@ -15,15 +15,23 @@ git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 
 # 2. 전체 스택 실행 (Frontend + Backend + MySQL + DynamoDB Local)
-docker compose -f docker-compose.local.yml up --build
+docker compose -f docker-compose.local.yml up --build -d
 
-# 3. 시드 데이터 입력 (최초 1회, 새 터미널에서)
+# 3. 시드 데이터 입력 (최초 1회)
 docker compose -f docker-compose.local.yml exec backend npm run seed
 
 # 4. 접속
 # 프론트엔드:  http://localhost
 # API:         http://localhost:3000/api
 # 헬스체크:    http://localhost:3000/health
+```
+
+### 데이터 초기화
+```bash
+# 볼륨 포함 전체 초기화
+docker compose -f docker-compose.local.yml down -v
+docker compose -f docker-compose.local.yml up --build -d
+docker compose -f docker-compose.local.yml exec backend npm run seed
 ```
 
 ### 로컬 환경 전제 조건
@@ -104,12 +112,12 @@ docker compose version
 
 ```bash
 # 로컬 모드 실행
-docker compose -f docker-compose.local.yml up --build
+docker compose -f docker-compose.local.yml up --build -d
 
 # AWS 연동 모드 실행 (.env.aws 파일 먼저 작성)
 cp backend/.env.aws.example backend/.env.aws
 # .env.aws 에 RDS endpoint, Cognito ID 등 실제 값 입력
-docker compose -f docker-compose.aws.yml up --build
+docker compose -f docker-compose.aws.yml up --build -d
 ```
 
 ---
@@ -121,6 +129,147 @@ docker compose -f docker-compose.aws.yml up --build
 | 관리자 | admin@travel.com | password123 |
 | 호스트 | host@travel.com | password123 |
 | 일반 | user@travel.com | password123 |
+
+---
+
+## AWS EC2 배포
+
+### 방법 1 — EC2 1대에 docker-compose 그대로 실행 (가장 빠름)
+
+#### 1. EC2 인스턴스 생성
+- AMI: **Amazon Linux 2023** 또는 **Ubuntu 22.04**
+- 인스턴스 타입: `t3.small` 이상 (t2.micro는 메모리 부족 가능)
+- 보안 그룹 인바운드 규칙:
+
+| 포트 | 프로토콜 | 소스 |
+|------|---------|------|
+| 22 | TCP | 내 IP |
+| 80 | TCP | 0.0.0.0/0 |
+| 3000 | TCP | 0.0.0.0/0 |
+
+#### 2. EC2 접속 후 환경 세팅
+
+```bash
+# Amazon Linux 2023
+sudo yum install -y docker git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+
+# Docker Compose 플러그인 설치
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# 재로그인 (docker 그룹 적용)
+exit
+```
+
+```bash
+# Ubuntu 22.04
+sudo apt update && sudo apt install -y docker.io docker-compose-plugin git
+sudo systemctl start docker
+sudo usermod -aG docker ubuntu
+exit   # 재로그인
+```
+
+#### 3. 배포 및 실행
+
+```bash
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
+
+docker compose -f docker-compose.local.yml up --build -d
+docker compose -f docker-compose.local.yml exec backend npm run seed
+```
+
+#### 4. 접속 확인
+
+```
+http://<EC2 퍼블릭 IP>
+```
+
+---
+
+### 방법 2 — EC2 2대 + RDS MySQL
+
+프론트엔드 EC2 / 백엔드 EC2 분리, DB는 RDS로 교체합니다.
+
+#### 1. RDS 생성
+- 엔진: MySQL 8.0
+- 인스턴스: `db.t3.micro`
+- DB명: `travel_booking`
+- 퍼블릭 액세스: **비활성화**
+- 보안 그룹: 백엔드 EC2 SG에서 포트 3306 허용
+
+#### 2. 백엔드 EC2 환경변수 설정
+
+```bash
+# .env.local 기반으로 DB_HOST만 RDS 엔드포인트로 변경
+cat > backend/.env.local << 'EOF'
+APP_MODE=local
+DB_HOST=<rds-endpoint>.rds.amazonaws.com
+JWT_SECRET=local-dev-secret-key-2024
+DYNAMO_ENDPOINT=http://dynamodb-local:8000
+EOF
+```
+
+#### 3. docker-compose에서 mysql 서비스 제거
+
+`docker-compose.local.yml`의 `mysql` 서비스와 백엔드 `depends_on.mysql` 항목을 제거하고 실행:
+
+```bash
+docker compose -f docker-compose.local.yml up --build -d
+docker compose -f docker-compose.local.yml exec backend npm run seed
+```
+
+---
+
+### 방법 3 — 풀 AWS 모드 (Cognito + RDS + DynamoDB + Translate)
+
+#### 1. 필요한 AWS 리소스 준비
+- **Cognito**: User Pool 생성, `custom:role` 속성 추가
+- **RDS**: MySQL 8.0, DB명 `travel_booking`
+- **DynamoDB**: 테이블 `TravelBookingCache` 생성 (파티션 키: `pk`)
+- **IAM Role**: EC2에 DynamoDB + Translate 권한 부여
+
+#### 2. 환경변수 작성
+
+```bash
+cp backend/.env.aws.example backend/.env.aws
+```
+
+```env
+APP_MODE=aws
+DB_HOST=<rds-endpoint>.rds.amazonaws.com
+DB_USER=admin
+DB_PASSWORD=<password>
+DB_NAME=travel_booking
+COGNITO_USER_POOL_ID=ap-northeast-2_XXXXXXXXX
+COGNITO_CLIENT_ID=<client-id>
+DYNAMO_TABLE=TravelBookingCache
+AWS_REGION=ap-northeast-2
+CORS_ORIGIN=http://<frontend-ec2-ip>
+```
+
+#### 3. 실행
+
+```bash
+docker compose -f docker-compose.aws.yml up --build -d
+```
+
+> **IAM Role 권한 정책 예시**
+> ```json
+> {
+>   "Effect": "Allow",
+>   "Action": [
+>     "dynamodb:GetItem", "dynamodb:PutItem",
+>     "translate:TranslateText"
+>   ],
+>   "Resource": "*"
+> }
+> ```
 
 ---
 
@@ -310,7 +459,7 @@ docker compose -f docker-compose.local.yml logs mysql
 
 # 전체 초기화 (볼륨 포함)
 docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml up --build
+docker compose -f docker-compose.local.yml up --build -d
 ```
 
 포트 충돌 시 `docker-compose.local.yml`에서 포트 번호 변경 후 재실행하세요.
@@ -328,20 +477,14 @@ docker compose -f docker-compose.local.yml up --build
 
 **`docker compose` 명령어를 찾을 수 없음**
 ```bash
-# Docker Compose 플러그인 재설치
 sudo yum install -y docker-compose-plugin
 docker compose version
 ```
 
 **MySQL 컨테이너 볼륨 마운트 실패 (SELinux)**
 ```bash
-# 확인
 getenforce   # Enforcing 이면 문제 발생 가능
-
-# 임시 해제
 sudo setenforce 0
-
-# 영구 해제 (재부팅 후에도 유지)
 sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
 ```
 
@@ -349,30 +492,23 @@ sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
 ```bash
 sudo firewall-cmd --permanent --add-port=80/tcp
 sudo firewall-cmd --reload
-
-# 방화벽 비활성화 (테스트 환경 한정)
-sudo systemctl stop firewalld
 ```
 
 **`permission denied` — docker 명령 실행 불가**
 ```bash
 sudo usermod -aG docker $USER
-newgrp docker          # 재로그인 없이 즉시 적용
+newgrp docker
 ```
 
 **이미지 pull 실패 (VMware 네트워크)**
 ```bash
-# DNS 확인
 cat /etc/resolv.conf
-
-# VMware 네트워크 어댑터를 NAT 또는 브리지로 변경 후
 sudo systemctl restart NetworkManager
 ping google.com
 ```
 
 **`/usr/sbin/mysqld: Can't create/write to file` (tmpdir 권한)**
 ```bash
-# 컨테이너 재생성
 docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml up --build
+docker compose -f docker-compose.local.yml up --build -d
 ```
