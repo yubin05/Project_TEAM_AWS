@@ -1,0 +1,69 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  로컬 테스트용 — AWS 서비스 연동 없음
+#  사용: docker-compose -f docker-compose.local.yml up --build
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── 프론트엔드 (Nginx) ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    networks:
+      - app-network
+    depends_on:
+      - backend
+
+  # ── 백엔드 (Express.js) ──────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env.local
+    depends_on:
+      mysql:
+        condition: service_healthy
+      dynamodb-local:
+        condition: service_started
+    networks:
+      - app-network
+
+  # ── MySQL (RDS 대체) ─────────────────────────────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: localpassword
+      MYSQL_DATABASE:      travel_booking
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test:     ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-plocalpassword"]
+      interval: 10s
+      timeout:  5s
+      retries:  5
+    networks:
+      - app-network
+
+  # ── DynamoDB Local (DynamoDB 대체) ───────────────────────────────────────────
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8000:8000"
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

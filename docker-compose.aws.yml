@@ -1,0 +1,43 @@
+version: '3.8'
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  AWS 서비스 연동 버전 (로컬에서 실제 AWS 서비스에 연결할 때 사용)
+#  - RDS, DynamoDB, Cognito, Amazon Translate 실제 사용
+#  - .env.aws 파일에 실제 AWS 엔드포인트/자격증명 필요
+#
+#  사용: docker-compose -f docker-compose.aws.yml up --build
+#
+#  ※ 실제 ECS 배포 시에는 이 파일이 아닌 Terraform infra/ 사용
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── 프론트엔드 (Nginx) ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    networks:
+      - app-network
+
+  # ── 백엔드 (Express.js → AWS 서비스 연동) ────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env.aws        # 실제 RDS endpoint, Cognito ID 등
+    networks:
+      - app-network
+
+    # AWS 자격증명은 EC2 IAM Role로 자동 처리됨
+    # 로컬에서 테스트 시에만 아래 주석 해제
+    # environment:
+    #   AWS_ACCESS_KEY_ID:     <your-access-key>
+    #   AWS_SECRET_ACCESS_KEY: <your-secret-key>
+
+networks:
+  app-network:
+    driver: bridge
