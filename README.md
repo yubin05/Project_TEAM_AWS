@@ -473,6 +473,33 @@ docker compose -f docker-compose.local.yml up --build -d
 
 ---
 
+### EC2 환경별 오류
+
+**`compose build requires buildx 0.17.0 or later`**
+
+Docker Buildx 버전이 낮을 때 발생합니다. 최신 버전으로 교체하세요.
+
+```bash
+# 방법 1 — GitHub API로 최신 버전 자동 설치
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL "$(curl -s https://api.github.com/repos/docker/buildx/releases/latest \
+  | grep 'browser_download_url.*linux-amd64"' \
+  | cut -d'"' -f4)" \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+# 방법 2 — 버전 직접 지정 (API 호출 불가 환경)
+sudo curl -SL https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+# 설치 확인 후 재실행
+docker buildx version
+docker compose -f docker-compose.local.yml up --build -d
+```
+
+---
+
 ### CentOS 7 환경별 오류
 
 **`docker compose` 명령어를 찾을 수 없음**
