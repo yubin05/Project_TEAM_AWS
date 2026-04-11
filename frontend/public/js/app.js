@@ -50,6 +50,10 @@ async function api(endpoint, options = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
   const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: { ...headers, ...options.headers } });
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`서버 오류 (${res.status}): 백엔드 서버에 연결할 수 없습니다.`);
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || '오류가 발생했습니다.');
   return data;
