@@ -61,10 +61,10 @@ export async function searchHotels(req: Request, res: Response): Promise<void> {
     query += ` LIMIT ? OFFSET ?`;
     params.push(Number(limit), offset);
 
-    const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+    const [rows] = await pool.query<RowDataPacket[]>(query, params);
     const hotels  = rows as (Hotel & { min_price: number })[];
 
-    const [countRows] = await pool.execute<RowDataPacket[]>(
+    const [countRows] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(DISTINCT h.id) as total FROM hotels h WHERE h.is_active = 1
        ${city     ? `AND h.city LIKE ?`     : ''}
        ${region   ? `AND h.region LIKE ?`   : ''}
