@@ -28,12 +28,65 @@ docker compose -f docker-compose.local.yml exec backend npm run seed
 
 ### 로컬 환경 전제 조건
 
+**Ubuntu**
+
 ```bash
-# Ubuntu 기준
 sudo apt update && sudo apt install -y docker.io docker-compose-plugin
 sudo systemctl start docker
 sudo usermod -aG docker $USER   # 재로그인 후 sudo 없이 사용 가능
 ```
+
+**CentOS 7 (VMware Pro Station)**
+
+```bash
+# 1. 기존 Docker 제거
+sudo yum remove -y docker docker-common docker-selinux docker-engine
+
+# 2. 필수 패키지 설치
+sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+
+# 3. Docker 공식 저장소 추가
+sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+
+# 4. Docker CE + Compose 플러그인 설치
+sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# 5. Docker 시작 및 부팅 자동 실행 등록
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# 6. 현재 사용자를 docker 그룹에 추가 (재로그인 필요)
+sudo usermod -aG docker $USER
+
+# 7. SELinux 설정 (컨테이너 볼륨 마운트 오류 방지)
+# 방법 A — Permissive 모드로 전환 (간단, 재부팅 후에도 유지)
+sudo setenforce 0
+sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+
+# 방법 B — Enforcing 유지 시 볼륨에 레이블 부여 (보안 유지)
+# docker-compose.local.yml 볼륨에 :z 옵션 추가 필요
+# 예) - mysql_data:/var/lib/mysql:z
+
+# 8. 방화벽 포트 개방
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --permanent --add-port=3000/tcp
+sudo firewall-cmd --permanent --add-port=3306/tcp
+sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload
+
+# 9. git 설치 (없는 경우)
+sudo yum install -y git
+
+# 10. 재로그인 후 docker 그룹 적용 확인
+newgrp docker
+docker --version
+docker compose version
+```
+
+> **CentOS 7 주의사항**
+> - `docker-compose` (V1, 하이픈) 대신 `docker compose` (V2, 공백) 사용
+> - SELinux Enforcing 상태에서 MySQL 볼륨 마운트 실패 시 방법 A 또는 B 적용
+> - VMware 네트워크 어댑터를 **NAT** 또는 **브리지**로 설정해야 외부 이미지 pull 가능
 
 ---
 
@@ -243,12 +296,17 @@ AWS_REGION=ap-northeast-2
 
 ## 트러블슈팅
 
+### 공통
+
 ```bash
 # 컨테이너 상태 확인
 docker compose -f docker-compose.local.yml ps
 
 # 백엔드 로그
 docker compose -f docker-compose.local.yml logs backend
+
+# MySQL 로그
+docker compose -f docker-compose.local.yml logs mysql
 
 # 전체 초기화 (볼륨 포함)
 docker compose -f docker-compose.local.yml down -v
@@ -263,3 +321,58 @@ docker compose -f docker-compose.local.yml up --build
 | Backend (Express) | 3000 |
 | MySQL | 3306 |
 | DynamoDB Local | 8000 |
+
+---
+
+### CentOS 7 환경별 오류
+
+**`docker compose` 명령어를 찾을 수 없음**
+```bash
+# Docker Compose 플러그인 재설치
+sudo yum install -y docker-compose-plugin
+docker compose version
+```
+
+**MySQL 컨테이너 볼륨 마운트 실패 (SELinux)**
+```bash
+# 확인
+getenforce   # Enforcing 이면 문제 발생 가능
+
+# 임시 해제
+sudo setenforce 0
+
+# 영구 해제 (재부팅 후에도 유지)
+sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
+```
+
+**포트 80 접속 불가 (방화벽)**
+```bash
+sudo firewall-cmd --permanent --add-port=80/tcp
+sudo firewall-cmd --reload
+
+# 방화벽 비활성화 (테스트 환경 한정)
+sudo systemctl stop firewalld
+```
+
+**`permission denied` — docker 명령 실행 불가**
+```bash
+sudo usermod -aG docker $USER
+newgrp docker          # 재로그인 없이 즉시 적용
+```
+
+**이미지 pull 실패 (VMware 네트워크)**
+```bash
+# DNS 확인
+cat /etc/resolv.conf
+
+# VMware 네트워크 어댑터를 NAT 또는 브리지로 변경 후
+sudo systemctl restart NetworkManager
+ping google.com
+```
+
+**`/usr/sbin/mysqld: Can't create/write to file` (tmpdir 권한)**
+```bash
+# 컨테이너 재생성
+docker compose -f docker-compose.local.yml down -v
+docker compose -f docker-compose.local.yml up --build
+```
