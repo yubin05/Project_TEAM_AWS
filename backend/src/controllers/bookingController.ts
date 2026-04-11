@@ -94,9 +94,11 @@ export async function getUserBookings(req: Request, res: Response): Promise<void
 
     const [rows] = await pool.execute<RowDataPacket[]>(query, params);
 
+    const countParams: (string | number)[] = [userId];
+    if (status) countParams.push(String(status));
     const [countRows] = await pool.execute<RowDataPacket[]>(
       `SELECT COUNT(*) as count FROM bookings WHERE user_id = ? ${status ? `AND status = ?` : ''}`,
-      status ? [userId, status] : [userId]
+      countParams
     );
     const total = ((countRows as RowDataPacket[])[0] as { count: number }).count;
 
