@@ -181,9 +181,18 @@ exit   # 재로그인
 #### 3. 배포 및 실행
 
 ```bash
+# 메모리 부족 상황을 대비한 스왑 파일 추가
+sudo dd if=/dev/zero of=/swapfile bs=128M count=16
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+
+# 프로젝트 복제(다운로드)
 git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 
+# 프로젝트 빌드 및 실행
 docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml exec backend npm run seed
 ```
