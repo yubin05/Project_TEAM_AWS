@@ -18,7 +18,7 @@ export async function createReview(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [bookingRows] = await pool.execute<RowDataPacket[]>(
+    const [bookingRows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM bookings WHERE id = ? AND user_id = ? AND hotel_id = ?',
       [booking_id, userId, hotel_id]
     );
@@ -32,7 +32,7 @@ export async function createReview(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [existingRows] = await pool.execute<RowDataPacket[]>(
+    const [existingRows] = await pool.query<RowDataPacket[]>(
       'SELECT id FROM reviews WHERE booking_id = ?', [booking_id]
     );
     if ((existingRows as RowDataPacket[]).length > 0) {
@@ -41,19 +41,19 @@ export async function createReview(req: Request, res: Response): Promise<void> {
     }
 
     const reviewId = uuidv4();
-    await pool.execute(
+    await pool.query(
       `INSERT INTO reviews (id, user_id, hotel_id, booking_id, rating, title, content, images)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [reviewId, userId, hotel_id, booking_id, rating, title, content, JSON.stringify(images)]
     );
 
     // 호텔 평점 업데이트
-    const [avgRows] = await pool.execute<RowDataPacket[]>(
+    const [avgRows] = await pool.query<RowDataPacket[]>(
       'SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE hotel_id = ?',
       [hotel_id]
     );
     const { avg_rating, count } = (avgRows as RowDataPacket[])[0] as { avg_rating: number; count: number };
-    await pool.execute(
+    await pool.query(
       'UPDATE hotels SET rating = ?, review_count = ? WHERE id = ?',
       [Math.round(avg_rating * 10) / 10, count, hotel_id]
     );
@@ -74,7 +74,7 @@ export async function getHotelReviews(req: Request, res: Response): Promise<void
     if (sort_by === 'rating_high') orderBy = 'r.rating DESC, r.created_at DESC';
     if (sort_by === 'rating_low')  orderBy = 'r.rating ASC, r.created_at DESC';
 
-    const [reviewRows] = await pool.execute<RowDataPacket[]>(
+    const [reviewRows] = await pool.query<RowDataPacket[]>(
       `SELECT r.*, u.name as user_name, u.profile_image as user_avatar
        FROM reviews r JOIN users u ON r.user_id = u.id
        WHERE r.hotel_id = ?
@@ -83,7 +83,7 @@ export async function getHotelReviews(req: Request, res: Response): Promise<void
       [hotelId, Number(limit), (Number(page) - 1) * Number(limit)]
     );
 
-    const [statsRows] = await pool.execute<RowDataPacket[]>(
+    const [statsRows] = await pool.query<RowDataPacket[]>(
       `SELECT
          COUNT(*) as total,
          AVG(rating) as average,
@@ -127,7 +127,7 @@ export async function deleteReview(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const userId = req.user!.userId;
 
-    const [rows] = await pool.execute<RowDataPacket[]>('SELECT * FROM reviews WHERE id = ?', [id]);
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM reviews WHERE id = ?', [id]);
     const review = (rows as RowDataPacket[])[0] as Review | undefined;
     if (!review) {
       res.status(404).json({ success: false, message: '리뷰를 찾을 수 없습니다.' });
@@ -138,14 +138,14 @@ export async function deleteReview(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    await pool.execute('DELETE FROM reviews WHERE id = ?', [id]);
+    await pool.query('DELETE FROM reviews WHERE id = ?', [id]);
 
-    const [avgRows] = await pool.execute<RowDataPacket[]>(
+    const [avgRows] = await pool.query<RowDataPacket[]>(
       'SELECT AVG(rating) as avg_rating, COUNT(*) as count FROM reviews WHERE hotel_id = ?',
       [review.hotel_id]
     );
     const { avg_rating, count } = (avgRows as RowDataPacket[])[0] as { avg_rating: number; count: number };
-    await pool.execute(
+    await pool.query(
       'UPDATE hotels SET rating = ?, review_count = ? WHERE id = ?',
       [avg_rating ? Math.round(avg_rating * 10) / 10 : 0, count, review.hotel_id]
     );
@@ -162,15 +162,15 @@ export async function toggleWishlist(req: Request, res: Response): Promise<void>
     const { hotelId } = req.params;
     const userId = req.user!.userId;
 
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT id FROM wishlists WHERE user_id = ? AND hotel_id = ?', [userId, hotelId]
     );
 
     if ((rows as RowDataPacket[]).length > 0) {
-      await pool.execute('DELETE FROM wishlists WHERE user_id = ? AND hotel_id = ?', [userId, hotelId]);
+      await pool.query('DELETE FROM wishlists WHERE user_id = ? AND hotel_id = ?', [userId, hotelId]);
       res.json({ success: true, message: '위시리스트에서 제거되었습니다.', data: { wishlisted: false } });
     } else {
-      await pool.execute(
+      await pool.query(
         'INSERT INTO wishlists (id, user_id, hotel_id) VALUES (?, ?, ?)',
         [uuidv4(), userId, hotelId]
       );
@@ -186,7 +186,7 @@ export async function getWishlist(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
 
-    const [rows] = await pool.execute<RowDataPacket[]>(`
+    const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT h.*, MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
       FROM wishlists w
       JOIN hotels h ON w.hotel_id = h.id

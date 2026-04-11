@@ -26,7 +26,7 @@ export async function createBooking(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const [roomRows] = await pool.execute<RowDataPacket[]>(
+    const [roomRows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM rooms WHERE id = ? AND hotel_id = ? AND is_available = 1',
       [room_id, hotel_id]
     );
@@ -40,7 +40,7 @@ export async function createBooking(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    const [conflictRows] = await pool.execute<RowDataPacket[]>(
+    const [conflictRows] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) as count FROM bookings
        WHERE room_id = ? AND status IN ('confirmed','pending')
        AND check_in_date < ? AND check_out_date > ?`,
@@ -56,7 +56,7 @@ export async function createBooking(req: Request, res: Response): Promise<void> 
     const totalPrice   = discounted * nights;
     const bookingId    = uuidv4();
 
-    await pool.execute(
+    await pool.query(
       `INSERT INTO bookings (id, user_id, hotel_id, room_id, check_in_date, check_out_date, guests, total_price, status, special_requests)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?)`,
       [bookingId, userId, hotel_id, room_id, check_in_date, check_out_date, guests, totalPrice, special_requests ?? null]
@@ -92,11 +92,11 @@ export async function getUserBookings(req: Request, res: Response): Promise<void
     query += ` ORDER BY b.created_at DESC LIMIT ? OFFSET ?`;
     params.push(Number(limit), (Number(page) - 1) * Number(limit));
 
-    const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+    const [rows] = await pool.query<RowDataPacket[]>(query, params);
 
     const countParams: (string | number)[] = [userId];
     if (status) countParams.push(String(status));
-    const [countRows] = await pool.execute<RowDataPacket[]>(
+    const [countRows] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) as count FROM bookings WHERE user_id = ? ${status ? `AND status = ?` : ''}`,
       countParams
     );
@@ -124,7 +124,7 @@ export async function getBookingById(req: Request, res: Response): Promise<void>
     const { id } = req.params;
     const userId = req.user!.userId;
 
-    const [rows] = await pool.execute<RowDataPacket[]>(`
+    const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT b.*, h.name as hotel_name, h.address as hotel_address, h.images as hotel_images,
              h.check_in_time, h.check_out_time, h.city, h.region,
              r.name as room_name, r.images as room_images, r.type as room_type, r.capacity
@@ -159,7 +159,7 @@ export async function cancelBooking(req: Request, res: Response): Promise<void> 
     const { id } = req.params;
     const userId = req.user!.userId;
 
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM bookings WHERE id = ? AND user_id = ?', [id, userId]
     );
     const booking = (rows as RowDataPacket[])[0] as Booking | undefined;
@@ -182,7 +182,7 @@ export async function cancelBooking(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    await pool.execute(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`, [id]);
+    await pool.query(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`, [id]);
     res.json({ success: true, message: '예약이 취소되었습니다.' });
   } catch (error) {
     console.error('Cancel booking error:', error);
@@ -210,7 +210,7 @@ export async function getHostBookings(req: Request, res: Response): Promise<void
     query += ` ORDER BY b.created_at DESC LIMIT ? OFFSET ?`;
     params.push(Number(limit), (Number(page) - 1) * Number(limit));
 
-    const [rows] = await pool.execute<RowDataPacket[]>(query, params);
+    const [rows] = await pool.query<RowDataPacket[]>(query, params);
     res.json({ success: true, data: rows });
   } catch (error) {
     console.error('Get host bookings error:', error);

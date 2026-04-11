@@ -104,7 +104,7 @@ export async function getHotelById(req: Request, res: Response): Promise<void> {
     const { id } = req.params;
     const lang = (req.query.lang as string) || 'ko';
 
-    const [hotelRows] = await pool.execute<RowDataPacket[]>(
+    const [hotelRows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM hotels WHERE id = ? AND is_active = 1', [id]
     );
     const hotel = (hotelRows as RowDataPacket[])[0] as Hotel | undefined;
@@ -113,8 +113,8 @@ export async function getHotelById(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [roomRows]   = await pool.execute<RowDataPacket[]>('SELECT * FROM rooms WHERE hotel_id = ?', [id]);
-    const [reviewRows] = await pool.execute<RowDataPacket[]>(`
+    const [roomRows]   = await pool.query<RowDataPacket[]>('SELECT * FROM rooms WHERE hotel_id = ?', [id]);
+    const [reviewRows] = await pool.query<RowDataPacket[]>(`
       SELECT r.*, u.name as user_name, u.profile_image as user_avatar
       FROM reviews r JOIN users u ON r.user_id = u.id
       WHERE r.hotel_id = ? ORDER BY r.created_at DESC LIMIT 10
@@ -160,7 +160,7 @@ export async function createHotel(req: Request, res: Response): Promise<void> {
     }
 
     const hotelId = uuidv4();
-    await pool.execute(
+    await pool.query(
       `INSERT INTO hotels (id, host_id, name, description, category, address, city, region,
         latitude, longitude, amenities, images, check_in_time, check_out_time)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -183,7 +183,7 @@ export async function updateHotel(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;
 
-    const [rows] = await pool.execute<RowDataPacket[]>('SELECT * FROM hotels WHERE id = ?', [id]);
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM hotels WHERE id = ?', [id]);
     const hotel = (rows as RowDataPacket[])[0] as Hotel | undefined;
     if (!hotel) {
       res.status(404).json({ success: false, message: '숙소를 찾을 수 없습니다.' });
@@ -196,7 +196,7 @@ export async function updateHotel(req: Request, res: Response): Promise<void> {
 
     const { name, description, address, amenities, images, check_in_time, check_out_time, is_active } = req.body;
 
-    await pool.execute(
+    await pool.query(
       `UPDATE hotels SET
         name           = COALESCE(?, name),
         description    = COALESCE(?, description),
@@ -227,7 +227,7 @@ export async function updateHotel(req: Request, res: Response): Promise<void> {
 export async function getRoomById(req: Request, res: Response): Promise<void> {
   try {
     const { hotelId, roomId } = req.params;
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM rooms WHERE id = ? AND hotel_id = ?', [roomId, hotelId]
     );
     const room = (rows as RowDataPacket[])[0] as Room | undefined;
@@ -256,7 +256,7 @@ export async function createRoom(req: Request, res: Response): Promise<void> {
   try {
     const { hotelId } = req.params;
 
-    const [rows] = await pool.execute<RowDataPacket[]>('SELECT * FROM hotels WHERE id = ?', [hotelId]);
+    const [rows] = await pool.query<RowDataPacket[]>('SELECT * FROM hotels WHERE id = ?', [hotelId]);
     const hotel = (rows as RowDataPacket[])[0] as Hotel | undefined;
     if (!hotel) {
       res.status(404).json({ success: false, message: '숙소를 찾을 수 없습니다.' });
@@ -274,7 +274,7 @@ export async function createRoom(req: Request, res: Response): Promise<void> {
     }
 
     const roomId = uuidv4();
-    await pool.execute(
+    await pool.query(
       `INSERT INTO rooms (id, hotel_id, name, description, type, capacity, price_per_night, discount_rate, images, amenities)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [roomId, hotelId, name, description, type, capacity, price_per_night, discount_rate, JSON.stringify(images), JSON.stringify(amenities)]
@@ -297,7 +297,7 @@ export async function checkRoomAvailability(req: Request, res: Response): Promis
       return;
     }
 
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT COUNT(*) as count FROM bookings
        WHERE room_id = ? AND hotel_id = ?
        AND status IN ('confirmed','pending')
@@ -317,7 +317,7 @@ export async function getFeaturedHotels(req: Request, res: Response): Promise<vo
   try {
     const lang = (req.query.lang as string) || 'ko';
 
-    const [rows] = await pool.execute<RowDataPacket[]>(`
+    const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT h.*, MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
       FROM hotels h
       LEFT JOIN rooms r ON h.id = r.hotel_id AND r.is_available = 1
@@ -345,7 +345,7 @@ export async function getFeaturedHotels(req: Request, res: Response): Promise<vo
 
 export async function getRegions(req: Request, res: Response): Promise<void> {
   try {
-    const [rows] = await pool.execute<RowDataPacket[]>(`
+    const [rows] = await pool.query<RowDataPacket[]>(`
       SELECT region, city, COUNT(*) as hotel_count
       FROM hotels WHERE is_active = 1
       GROUP BY region, city

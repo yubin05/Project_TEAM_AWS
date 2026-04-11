@@ -19,7 +19,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [existing] = await pool.execute<RowDataPacket[]>(
+    const [existing] = await pool.query<RowDataPacket[]>(
       'SELECT id FROM users WHERE email = ?', [email]
     );
     if ((existing as RowDataPacket[]).length > 0) {
@@ -31,7 +31,7 @@ export async function register(req: Request, res: Response): Promise<void> {
     const userId = uuidv4();
     const userRole = role === 'host' ? 'host' : 'user';
 
-    await pool.execute<ResultSetHeader>(
+    await pool.query<ResultSetHeader>(
       'INSERT INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
       [userId, email, hashedPassword, name, phone || null, userRole]
     );
@@ -57,7 +57,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM users WHERE email = ?', [email]
     );
     const user = (rows as RowDataPacket[])[0] as User | undefined;
@@ -89,7 +89,7 @@ export async function login(req: Request, res: Response): Promise<void> {
 
 export async function getProfile(req: Request, res: Response): Promise<void> {
   try {
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT id, email, name, phone, profile_image, role, created_at FROM users WHERE id = ?',
       [req.user!.userId]
     );
@@ -108,7 +108,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
     const { name, phone } = req.body;
-    await pool.execute(
+    await pool.query(
       'UPDATE users SET name = ?, phone = ? WHERE id = ?',
       [name, phone, req.user!.userId]
     );
@@ -123,7 +123,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
   try {
     const { current_password, new_password } = req.body;
 
-    const [rows] = await pool.execute<RowDataPacket[]>(
+    const [rows] = await pool.query<RowDataPacket[]>(
       'SELECT * FROM users WHERE id = ?', [req.user!.userId]
     );
     const user = (rows as RowDataPacket[])[0] as User | undefined;
@@ -143,7 +143,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     }
 
     const hashed = await bcrypt.hash(new_password, 10);
-    await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user!.userId]);
+    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user!.userId]);
     res.json({ success: true, message: '비밀번호가 변경되었습니다.' });
   } catch (error) {
     console.error('Change password error:', error);
