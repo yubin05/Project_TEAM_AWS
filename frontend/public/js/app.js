@@ -1,5 +1,3 @@
-// ===== Config =====
-const API_BASE = '/api';
 
 // ===== State =====
 let state = {

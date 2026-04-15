@@ -1,29 +1,43 @@
 # AI 여행 예약 플랫폼 — Project TEAM AWS
 
 야놀자 스타일의 여행 및 숙박 예약 플랫폼.  
-**로컬 Docker 환경**과 **AWS 클라우드 환경** 두 가지 모드로 실행 가능합니다.
+**프론트엔드는 AWS Amplify**, **백엔드는 Docker(ECS) 또는 로컬 Docker**로 실행합니다.
+
+---
+
+## 아키텍처
+
+```
+프론트엔드  →  AWS Amplify (정적 호스팅)
+백엔드      →  ECR + ECS (Fargate) 또는 로컬 Docker
+DB          →  RDS MySQL + DynamoDB
+인증        →  AWS Cognito
+```
 
 ---
 
 ## 빠른 시작 (로컬 테스트)
 
-Docker와 Docker Compose만 있으면 AWS 계정 없이 바로 실행됩니다.
+백엔드(API + MySQL + DynamoDB)만 Docker로 실행하고,  
+프론트엔드는 브라우저에서 직접 열거나 Live Server로 실행합니다.
 
 ```bash
 # 1. Clone
 git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 
-# 2. 전체 스택 실행 (Frontend + Backend + MySQL + DynamoDB Local)
+# 2. 백엔드 스택 실행 (Backend + MySQL + DynamoDB Local)
 docker compose -f docker-compose.local.yml up --build -d
 
 # 3. 시드 데이터 입력 (최초 1회)
 docker compose -f docker-compose.local.yml exec backend npm run seed
 
-# 4. 접속
-# 프론트엔드:  http://localhost
-# API:         http://localhost:3000/api
-# 헬스체크:    http://localhost:3000/health
+# 4. 프론트엔드 실행
+# VS Code Live Server로 frontend/public/index.html 열기
+# 또는 브라우저에서 직접 file:// 경로로 열기
+
+# API:       http://localhost:3000/api
+# 헬스체크:  http://localhost:3000/health
 ```
 
 ### 데이터 초기화
@@ -95,6 +109,32 @@ docker compose version
 > - `docker-compose` (V1, 하이픈) 대신 `docker compose` (V2, 공백) 사용
 > - SELinux Enforcing 상태에서 MySQL 볼륨 마운트 실패 시 방법 A 또는 B 적용
 > - VMware 네트워크 어댑터를 **NAT** 또는 **브리지**로 설정해야 외부 이미지 pull 가능
+
+---
+
+## Amplify 배포 (프론트엔드)
+
+#### 1. Amplify 콘솔에서 GitHub 연결
+```
+AWS Amplify 콘솔 → 새 앱 → GitHub 저장소 연결
+브랜치: main
+```
+
+#### 2. 환경변수 설정
+```
+Amplify 콘솔 → 앱 설정 → 환경변수
+API_URL = https://<백엔드-도메인>   (ECS/EC2 백엔드 주소)
+```
+
+#### 3. 빌드 설정
+루트의 `amplify.yml`이 자동으로 사용됩니다.  
+빌드 시 `config.js`에 백엔드 URL이 자동 주입됩니다.
+
+#### 4. 백엔드 CORS 설정
+```env
+# backend/.env.aws
+CORS_ORIGIN=https://<amplify-app-id>.amplifyapp.com
+```
 
 ---
 
@@ -290,16 +330,17 @@ docker compose -f docker-compose.aws.yml up --build -d
 
 ```
 Project_TEAM_AWS/
-├── docker-compose.local.yml        로컬 테스트 (AWS 불필요)
+├── amplify.yml                     Amplify 빌드 스펙
+├── docker-compose.local.yml        로컬 테스트 (백엔드만)
 ├── docker-compose.aws.yml          AWS 연동 버전
 │
-├── frontend/
-│   ├── Dockerfile                  Nginx 이미지
-│   ├── nginx.conf                  SPA 라우팅 + /api 프록시
+├── frontend/                       → AWS Amplify로 배포
 │   └── public/
 │       ├── index.html
 │       ├── css/style.css
-│       └── js/app.js
+│       └── js/
+│           ├── config.js           API URL 설정 (환경별 자동 교체)
+│           └── app.js
 │
 └── backend/
     ├── Dockerfile                  멀티스테이지 빌드

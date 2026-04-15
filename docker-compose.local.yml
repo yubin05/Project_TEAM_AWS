@@ -7,17 +7,6 @@ version: '3.8'
 
 services:
 
-  # ── 프론트엔드 (Nginx) ───────────────────────────────────────────────────────
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "80:80"
-    networks:
-      - app-network
-    depends_on:
-      - backend
-
   # ── 백엔드 (Express.js) ──────────────────────────────────────────────────────
   backend:
     build:
