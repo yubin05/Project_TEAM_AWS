@@ -18,8 +18,7 @@ DB          →  RDS MySQL + DynamoDB
 
 ## 빠른 시작 (로컬 테스트)
 
-백엔드(API + MySQL + DynamoDB)만 Docker로 실행하고,  
-프론트엔드는 브라우저에서 직접 열거나 Live Server로 실행합니다.
+백엔드(API + MySQL + DynamoDB)는 Docker로, 프론트엔드는 http-server로 실행합니다.
 
 ```bash
 # 1. Clone
@@ -33,12 +32,16 @@ docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml exec backend npm run seed
 
 # 4. 프론트엔드 실행
-# VS Code Live Server로 frontend/public/index.html 열기
-# 또는 브라우저에서 직접 file:// 경로로 열기
+npm install -g http-server
+http-server frontend/public -p 8080 -c-1
 
-# API:       http://localhost:3000/api
-# 헬스체크:  http://localhost:3000/health
+# 5. 접속
+# 프론트엔드:  http://localhost:8080
+# API:         http://localhost:3000/api
+# 헬스체크:    http://localhost:3000/health
 ```
+
+> **`-c-1` 옵션**: 캐시 비활성화. 코드 변경 후 즉시 반영됩니다.
 
 ### 데이터 초기화
 ```bash
@@ -232,16 +235,36 @@ echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 
-# 프로젝트 빌드 및 실행
+# 백엔드 빌드 및 실행
 docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml exec backend npm run seed
 ```
 
-#### 4. 접속 확인
+#### 4. 프론트엔드 실행 (http-server)
+
+```bash
+# Node.js 설치 (없는 경우)
+sudo yum install -y nodejs   # Amazon Linux
+# sudo apt install -y nodejs  # Ubuntu
+
+# http-server 설치 및 실행
+sudo npm install -g http-server
+http-server ~/Project_TEAM_AWS/frontend/public -p 8080 -c-1
+```
+
+백그라운드 실행:
+```bash
+nohup http-server ~/Project_TEAM_AWS/frontend/public -p 8080 -c-1 &
+```
+
+#### 5. 접속 확인
 
 ```
-http://<EC2 퍼블릭 IP>
+프론트엔드:  http://<EC2 퍼블릭 IP>:8080
+API:         http://<EC2 퍼블릭 IP>:3000/api
 ```
+
+> 보안 그룹 인바운드에 **8080 포트** 추가 필요
 
 ---
 
