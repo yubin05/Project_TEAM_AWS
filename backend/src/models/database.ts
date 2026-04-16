@@ -111,6 +111,15 @@ export async function initializeDatabase(): Promise<void> {
       ) CHARACTER SET utf8mb4
     `);
 
+    // hotels 테이블 영상 컬럼 추가 (기존 DB 마이그레이션)
+    const migrations = [
+      `ALTER TABLE hotels ADD COLUMN video_url VARCHAR(500) NULL`,
+      `ALTER TABLE hotels ADD COLUMN video_status ENUM('none','processing','ready') NOT NULL DEFAULT 'none'`,
+    ];
+    for (const m of migrations) {
+      try { await conn.execute(m); } catch { /* 이미 존재하면 무시 */ }
+    }
+
     // 인덱스 (이미 존재하면 무시)
     const indexes = [
       `CREATE INDEX IF NOT EXISTS idx_hotels_city     ON hotels(city)`,

@@ -453,6 +453,38 @@ input, select, textarea { font-family: inherit; }
 /* Wide modal for room registration */
 .modal-wide { width: 600px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
 
+/* ===== Video Upload Panel ===== */
+.video-upload-panel { border-top: 1px solid var(--border); background: #f0f7ff; }
+.video-upload-inner { padding: 16px 24px; display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.video-status-badge {
+  padding: 4px 14px; border-radius: 20px; font-size: 0.82rem; font-weight: 600;
+}
+.video-status-badge.none       { background: #eee; color: var(--text-light); }
+.video-status-badge.processing { background: #fff3cd; color: #856404; }
+.video-status-badge.ready      { background: #d1e7dd; color: #0f5132; }
+.video-upload-area { display: flex; align-items: center; }
+.video-progress-wrap {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+}
+.video-progress-bar {
+  flex: 1; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden;
+}
+.video-progress-fill {
+  height: 100%; background: var(--primary); border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* ===== Hotel Video Player ===== */
+.hotel-video-wrap {
+  border-radius: var(--radius); overflow: hidden;
+  background: #000; margin-bottom: 8px;
+  box-shadow: var(--shadow);
+}
+.hotel-video {
+  width: 100%; max-height: 480px;
+  display: block;
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 1024px) {
   .hotels-grid { grid-template-columns: repeat(3, 1fr); }

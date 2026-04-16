@@ -33,6 +33,19 @@ export const config = {
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
   },
+
+  s3: {
+    region:       process.env.AWS_REGION         || 'ap-northeast-2',
+    sourceBucket: process.env.S3_SOURCE_BUCKET   || '',   // 원본 MP4 업로드
+    outputBucket: process.env.S3_OUTPUT_BUCKET   || '',   // HLS 변환본 저장
+    cdnDomain:    process.env.S3_CLOUDFRONT_DOMAIN || '', // CloudFront URL
+    lambdaSecret: process.env.LAMBDA_CALLBACK_SECRET || 'local-secret',
+  },
+
+  mediaConvert: {
+    endpoint: process.env.MEDIACONVERT_ENDPOINT || '',
+    roleArn:  process.env.MEDIACONVERT_ROLE_ARN || '',
+  },
 };
 
 export const isLocal = config.mode === 'local';
