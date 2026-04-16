@@ -3,7 +3,7 @@ import { register, login, getProfile, updateProfile, changePassword } from '../c
 import {
   searchHotels, getHotelById, createHotel, updateHotel,
   getRoomById, createRoom, checkRoomAvailability,
-  getFeaturedHotels, getRegions
+  getFeaturedHotels, getRegions, getMyHotels
 } from '../controllers/hotelController';
 import { createBooking, getUserBookings, getBookingById, cancelBooking, getHostBookings } from '../controllers/bookingController';
 import { createReview, getHotelReviews, deleteReview, toggleWishlist, getWishlist } from '../controllers/reviewController';
@@ -21,6 +21,7 @@ router.put('/auth/password', authenticateToken, changePassword);
 // Hotel routes
 router.get('/hotels/featured', getFeaturedHotels);
 router.get('/hotels/regions', getRegions);
+router.get('/hotels/mine', authenticateToken, requireRole('host', 'admin'), getMyHotels);
 router.get('/hotels/search', searchHotels);
 router.get('/hotels/:id', getHotelById);
 router.post('/hotels', authenticateToken, requireRole('host', 'admin'), createHotel);

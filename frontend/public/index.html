@@ -20,6 +20,7 @@
         <a href="#" class="nav-link" data-page="search">숙소 검색</a>
         <a href="#" class="nav-link" data-page="bookings" id="nav-bookings" style="display:none">내 예약</a>
         <a href="#" class="nav-link" data-page="wishlist" id="nav-wishlist" style="display:none">위시리스트</a>
+        <a href="#" class="nav-link nav-link-admin" data-page="admin" id="nav-admin" style="display:none">관리자</a>
       </nav>
       <div class="header-actions">
         <div id="auth-buttons">
@@ -39,6 +40,7 @@
             <a href="#" data-page="bookings">내 예약 관리</a>
             <a href="#" data-page="wishlist">위시리스트</a>
             <a href="#" data-page="profile">프로필 설정</a>
+            <a href="#" data-page="admin" id="dropdown-admin" style="display:none; color:var(--primary); font-weight:600;">관리자 대시보드</a>
             <hr>
             <a href="#" id="btn-logout">로그아웃</a>
           </div>
@@ -299,6 +301,120 @@
       </div>
     </div>
 
+    <!-- Admin Page -->
+    <div id="page-admin" class="page">
+      <div class="container">
+        <div class="admin-header">
+          <h2 class="page-title" style="margin-bottom:16px">관리자 대시보드</h2>
+          <div class="admin-stats" id="admin-stats"></div>
+        </div>
+
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-tab="hotels">내 숙소</button>
+          <button class="admin-tab" data-tab="add-hotel">숙소 등록</button>
+          <button class="admin-tab" data-tab="bookings">예약 현황</button>
+        </div>
+
+        <!-- 내 숙소 탭 -->
+        <div id="admin-tab-hotels" class="admin-tab-content active">
+          <div id="admin-hotels-list"></div>
+        </div>
+
+        <!-- 숙소 등록 탭 -->
+        <div id="admin-tab-add-hotel" class="admin-tab-content">
+          <form id="admin-hotel-form">
+            <div class="admin-form-section">
+              <h3>기본 정보</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>숙소명 *</label>
+                  <input type="text" id="ah-name" required placeholder="숙소 이름">
+                </div>
+                <div class="form-group">
+                  <label>숙소 유형 *</label>
+                  <select id="ah-category" required>
+                    <option value="">선택</option>
+                    <option value="hotel">호텔</option>
+                    <option value="motel">모텔</option>
+                    <option value="pension">펜션</option>
+                    <option value="guesthouse">게스트하우스</option>
+                    <option value="resort">리조트</option>
+                    <option value="camping">캠핑</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-group">
+                <label>숙소 설명 *</label>
+                <textarea id="ah-description" rows="4" required placeholder="숙소 소개를 입력해주세요"></textarea>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>도시 *</label>
+                  <input type="text" id="ah-city" required placeholder="예) 서울, 제주">
+                </div>
+                <div class="form-group">
+                  <label>지역 *</label>
+                  <input type="text" id="ah-region" required placeholder="예) 강남구, 서귀포시">
+                </div>
+              </div>
+              <div class="form-group">
+                <label>주소 *</label>
+                <input type="text" id="ah-address" required placeholder="상세 주소">
+              </div>
+            </div>
+
+            <div class="admin-form-section">
+              <h3>운영 정보</h3>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>체크인 시간</label>
+                  <input type="time" id="ah-checkin-time" value="15:00">
+                </div>
+                <div class="form-group">
+                  <label>체크아웃 시간</label>
+                  <input type="time" id="ah-checkout-time" value="11:00">
+                </div>
+              </div>
+            </div>
+
+            <div class="admin-form-section">
+              <h3>편의시설</h3>
+              <div class="admin-amenities-grid" id="ah-amenities-grid">
+                <label><input type="checkbox" value="수영장"> 수영장</label>
+                <label><input type="checkbox" value="주차장"> 주차장</label>
+                <label><input type="checkbox" value="와이파이"> 와이파이</label>
+                <label><input type="checkbox" value="조식포함"> 조식포함</label>
+                <label><input type="checkbox" value="스파"> 스파</label>
+                <label><input type="checkbox" value="바베큐"> 바베큐</label>
+                <label><input type="checkbox" value="피트니스센터"> 피트니스센터</label>
+                <label><input type="checkbox" value="레스토랑"> 레스토랑</label>
+                <label><input type="checkbox" value="바"> 바</label>
+                <label><input type="checkbox" value="공항셔틀"> 공항셔틀</label>
+                <label><input type="checkbox" value="바다뷰"> 바다뷰</label>
+                <label><input type="checkbox" value="취사가능"> 취사가능</label>
+              </div>
+            </div>
+
+            <div class="admin-form-section">
+              <h3>이미지 URL</h3>
+              <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:12px">S3 URL 또는 외부 이미지 URL (쉼표로 구분)</p>
+              <div class="form-group">
+                <textarea id="ah-images" rows="3" placeholder="https://example.com/img1.jpg, https://example.com/img2.jpg"></textarea>
+              </div>
+            </div>
+
+            <div class="form-error" id="admin-hotel-error"></div>
+            <button type="submit" class="btn btn-primary btn-large">숙소 등록하기</button>
+          </form>
+        </div>
+
+        <!-- 예약 현황 탭 -->
+        <div id="admin-tab-bookings" class="admin-tab-content">
+          <div id="admin-bookings-list"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Profile Page -->
     <div id="page-profile" class="page">
       <div class="container profile-container">
@@ -403,6 +519,74 @@
       <span>이미 계정이 있으신가요?</span>
       <a href="#" id="switch-to-login">로그인</a>
     </div>
+  </div>
+
+  <!-- Room Registration Modal -->
+  <div class="modal modal-wide" id="modal-room">
+    <div class="modal-header">
+      <h3>객실 등록</h3>
+      <button class="modal-close" data-modal="modal-room">&times;</button>
+    </div>
+    <form id="admin-room-form">
+      <div class="form-row">
+        <div class="form-group">
+          <label>객실명 *</label>
+          <input type="text" id="ar-name" required placeholder="예) 디럭스 더블룸">
+        </div>
+        <div class="form-group">
+          <label>객실 유형 *</label>
+          <select id="ar-type" required>
+            <option value="">선택</option>
+            <option value="standard">스탠다드</option>
+            <option value="deluxe">디럭스</option>
+            <option value="suite">스위트</option>
+            <option value="family">패밀리</option>
+            <option value="dormitory">도미토리</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>객실 설명 *</label>
+        <textarea id="ar-description" rows="3" required placeholder="객실 특징을 입력해주세요"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>최대 인원 *</label>
+          <input type="number" id="ar-capacity" required min="1" max="20" placeholder="2">
+        </div>
+        <div class="form-group">
+          <label>1박 가격 (원) *</label>
+          <input type="number" id="ar-price" required min="0" step="1000" placeholder="100000">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>할인율 (%)</label>
+        <input type="number" id="ar-discount" min="0" max="100" value="0">
+      </div>
+      <div class="form-group">
+        <label>편의시설</label>
+        <div class="admin-amenities-grid">
+          <label><input type="checkbox" value="에어컨"> 에어컨</label>
+          <label><input type="checkbox" value="TV"> TV</label>
+          <label><input type="checkbox" value="욕조"> 욕조</label>
+          <label><input type="checkbox" value="샤워부스"> 샤워부스</label>
+          <label><input type="checkbox" value="냉장고"> 냉장고</label>
+          <label><input type="checkbox" value="미니바"> 미니바</label>
+          <label><input type="checkbox" value="발코니"> 발코니</label>
+          <label><input type="checkbox" value="오션뷰"> 오션뷰</label>
+          <label><input type="checkbox" value="킹사이즈침대"> 킹사이즈침대</label>
+          <label><input type="checkbox" value="소파"> 소파</label>
+          <label><input type="checkbox" value="금연"> 금연</label>
+          <label><input type="checkbox" value="장애인편의"> 장애인편의</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>이미지 URL (쉼표로 구분)</label>
+        <textarea id="ar-images" rows="2" placeholder="https://example.com/room.jpg"></textarea>
+      </div>
+      <div class="form-error" id="admin-room-error"></div>
+      <button type="submit" class="btn btn-primary btn-full">객실 등록하기</button>
+    </form>
   </div>
 
   <!-- Toast Notification -->

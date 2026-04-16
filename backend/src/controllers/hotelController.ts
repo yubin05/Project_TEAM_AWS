@@ -343,6 +343,39 @@ export async function getFeaturedHotels(req: Request, res: Response): Promise<vo
   }
 }
 
+export async function getMyHotels(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const role = req.user!.role;
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      role === 'admin'
+        ? `SELECT h.*, COUNT(DISTINCT r.id) as room_count,
+             MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
+           FROM hotels h LEFT JOIN rooms r ON h.id = r.hotel_id
+           GROUP BY h.id ORDER BY h.created_at DESC`
+        : `SELECT h.*, COUNT(DISTINCT r.id) as room_count,
+             MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
+           FROM hotels h LEFT JOIN rooms r ON h.id = r.hotel_id
+           WHERE h.host_id = ?
+           GROUP BY h.id ORDER BY h.created_at DESC`,
+      role === 'admin' ? [] : [userId]
+    );
+
+    const hotels = (rows as any[]).map(h => ({
+      ...h,
+      amenities: typeof h.amenities === 'string' ? JSON.parse(h.amenities) : h.amenities,
+      images:    typeof h.images    === 'string' ? JSON.parse(h.images)    : h.images,
+      is_active: Boolean(h.is_active),
+    }));
+
+    res.json({ success: true, data: hotels });
+  } catch (error) {
+    console.error('Get my hotels error:', error);
+    res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
+  }
+}
+
 export async function getRegions(req: Request, res: Response): Promise<void> {
   try {
     const [rows] = await pool.query<RowDataPacket[]>(`
