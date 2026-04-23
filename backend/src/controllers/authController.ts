@@ -5,6 +5,7 @@ import { RowDataPacket, ResultSetHeader } from 'mysql2';
 import pool from '../models/pool';
 import { generateToken } from '../middleware/auth';
 import { User } from '../types';
+import logger from '../utils/logger';
 
 export async function register(req: Request, res: Response): Promise<void> {
   try {
@@ -43,7 +44,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       data: { token, user: { id: userId, email, name, role: userRole } },
     });
   } catch (error) {
-    console.error('Register error:', error);
+    logger.error('Register error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -82,7 +83,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -100,7 +101,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
     }
     res.json({ success: true, data: user });
   } catch (error) {
-    console.error('Get profile error:', error);
+    logger.error('Get profile error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -114,7 +115,7 @@ export async function updateProfile(req: Request, res: Response): Promise<void> 
     );
     res.json({ success: true, message: '프로필이 업데이트되었습니다.' });
   } catch (error) {
-    console.error('Update profile error:', error);
+    logger.error('Update profile error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -146,7 +147,7 @@ export async function changePassword(req: Request, res: Response): Promise<void>
     await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user!.userId]);
     res.json({ success: true, message: '비밀번호가 변경되었습니다.' });
   } catch (error) {
-    console.error('Change password error:', error);
+    logger.error('Change password error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }

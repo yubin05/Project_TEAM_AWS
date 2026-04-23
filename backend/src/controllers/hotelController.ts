@@ -4,6 +4,7 @@ import { RowDataPacket } from 'mysql2';
 import pool from '../models/pool';
 import { translateFields } from '../services/translateService';
 import { Hotel, Room, SearchQuery } from '../types';
+import logger from '../utils/logger';
 
 export async function searchHotels(req: Request, res: Response): Promise<void> {
   try {
@@ -94,7 +95,7 @@ export async function searchHotels(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Search hotels error:', error);
+    logger.error('Search hotels error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -141,7 +142,7 @@ export async function getHotelById(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Get hotel error:', error);
+    logger.error('Get hotel error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -174,7 +175,7 @@ export async function createHotel(req: Request, res: Response): Promise<void> {
 
     res.status(201).json({ success: true, message: '숙소가 등록되었습니다.', data: { id: hotelId } });
   } catch (error) {
-    console.error('Create hotel error:', error);
+    logger.error('Create hotel error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -219,7 +220,7 @@ export async function updateHotel(req: Request, res: Response): Promise<void> {
 
     res.json({ success: true, message: '숙소 정보가 업데이트되었습니다.' });
   } catch (error) {
-    console.error('Update hotel error:', error);
+    logger.error('Update hotel error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -247,7 +248,7 @@ export async function getRoomById(req: Request, res: Response): Promise<void> {
       },
     });
   } catch (error) {
-    console.error('Get room error:', error);
+    logger.error('Get room error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -282,7 +283,7 @@ export async function createRoom(req: Request, res: Response): Promise<void> {
 
     res.status(201).json({ success: true, message: '객실이 등록되었습니다.', data: { id: roomId } });
   } catch (error) {
-    console.error('Create room error:', error);
+    logger.error('Create room error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -308,7 +309,7 @@ export async function checkRoomAvailability(req: Request, res: Response): Promis
 
     res.json({ success: true, data: { available: count === 0 } });
   } catch (error) {
-    console.error('Check availability error:', error);
+    logger.error('Check availability error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -338,7 +339,7 @@ export async function getFeaturedHotels(req: Request, res: Response): Promise<vo
 
     res.json({ success: true, data: result });
   } catch (error) {
-    console.error('Get featured hotels error:', error);
+    logger.error('Get featured hotels error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -386,7 +387,7 @@ export async function getRegions(req: Request, res: Response): Promise<void> {
     `);
     res.json({ success: true, data: rows });
   } catch (error) {
-    console.error('Get regions error:', error);
+    logger.error('Get regions error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }

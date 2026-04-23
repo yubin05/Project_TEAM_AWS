@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { RowDataPacket } from 'mysql2';
 import pool from '../models/pool';
 import { Booking, Room } from '../types';
+import logger from '../utils/logger';
 
 export async function createBooking(req: Request, res: Response): Promise<void> {
   try {
@@ -68,7 +69,7 @@ export async function createBooking(req: Request, res: Response): Promise<void> 
       data: { id: bookingId, total_price: totalPrice, nights, status: 'confirmed' },
     });
   } catch (error) {
-    console.error('Create booking error:', error);
+    logger.error('Create booking error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -114,7 +115,7 @@ export async function getUserBookings(req: Request, res: Response): Promise<void
       },
     });
   } catch (error) {
-    console.error('Get bookings error:', error);
+    logger.error('Get bookings error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -149,7 +150,7 @@ export async function getBookingById(req: Request, res: Response): Promise<void>
       },
     });
   } catch (error) {
-    console.error('Get booking error:', error);
+    logger.error('Get booking error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -185,7 +186,7 @@ export async function cancelBooking(req: Request, res: Response): Promise<void> 
     await pool.query(`UPDATE bookings SET status = 'cancelled' WHERE id = ?`, [id]);
     res.json({ success: true, message: '예약이 취소되었습니다.' });
   } catch (error) {
-    console.error('Cancel booking error:', error);
+    logger.error('Cancel booking error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -213,7 +214,7 @@ export async function getHostBookings(req: Request, res: Response): Promise<void
     const [rows] = await pool.query<RowDataPacket[]>(query, params);
     res.json({ success: true, data: rows });
   } catch (error) {
-    console.error('Get host bookings error:', error);
+    logger.error('Get host bookings error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }

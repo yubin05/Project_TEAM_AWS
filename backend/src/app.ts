@@ -1,8 +1,11 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
+import morgan from 'morgan';
 import { config, isLocal } from './config';
 import { initializeDatabase } from './models/database';
 import router from './routes';
+import logger from './utils/logger';
 
 const app = express();
 
@@ -13,6 +16,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(morgan('combined', { stream: { write: (msg) => logger.http(msg.trim()) } }));
 
 app.use('/api', router);
 
@@ -36,9 +40,8 @@ async function bootstrap() {
   });
 }
 
-bootstrap().catch((err) => {
-  console.error('서버 시작 실패:', err);
-  process.exit(1);
+app.listen(PORT, () => {
+  logger.info('Server started', { port: PORT })
 });
 
 export default app;
