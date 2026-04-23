@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import morgan from 'morgan';
-import { config, isLocal } from './config';
+import { config } from './config';
 import { initializeDatabase } from './models/database';
 import router from './routes';
 import logger from './utils/logger';
@@ -33,15 +33,10 @@ async function bootstrap() {
   await initializeDatabase();
 
   app.listen(config.port, () => {
-    console.log(`\n🚀 서버 실행 중`);
-    console.log(`   포트  : ${config.port}`);
-    console.log(`   모드  : ${config.mode.toUpperCase()} ${isLocal ? '(로컬 Docker)' : '(AWS EC2)'}`);
-    console.log(`   API   : http://localhost:${config.port}/api\n`);
+    logger.info('Server started', { port: config.port, mode: config.mode });
   });
 }
 
-app.listen(PORT, () => {
-  logger.info('Server started', { port: PORT })
-});
+bootstrap();
 
 export default app;
