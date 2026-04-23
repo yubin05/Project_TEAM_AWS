@@ -10,7 +10,7 @@ services:
   # ── 백엔드 (Express.js) ──────────────────────────────────────────────────────
   backend:
     environment:
-      - LOG_DIR=/var/log/app
+      - LOG_DIR=/var/log/app # 로그 디렉터리 환경 변수 추가
     volumes:
       - /var/log/app:/var/log/app   # 호스트 ↔ 컨테이너 연결
     build:
