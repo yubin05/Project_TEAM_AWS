@@ -9,6 +9,10 @@ services:
 
   # ── 백엔드 (Express.js) ──────────────────────────────────────────────────────
   backend:
+    environment:
+      - LOG_DIR=/var/log/app
+    volumes:
+      - /var/log/app:/var/log/app   # 호스트 ↔ 컨테이너 연결
     build:
       context: ./backend
     ports:
