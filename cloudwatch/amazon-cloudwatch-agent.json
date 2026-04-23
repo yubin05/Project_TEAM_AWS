@@ -1,0 +1,26 @@
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/app/app.log",
+            "log_group_name": "/travel-app/backend",
+            "log_stream_name": "{instance_id}",
+            "timestamp_format": "%Y-%m-%dT%H:%M:%S",
+            "multi_line_start_pattern": "\\{\"timestamp\""
+          },
+          {
+            "file_path": "/var/log/app/error.log",
+            "log_group_name": "/travel-app/backend/errors",
+            "log_stream_name": "{instance_id}",
+            "timestamp_format": "%Y-%m-%dT%H:%M:%S",
+            "multi_line_start_pattern": "\\{\"timestamp\""
+          }
+        ]
+      }
+    },
+    "log_stream_name": "travel-app-default",
+    "force_flush_interval": 15
+  }
+}

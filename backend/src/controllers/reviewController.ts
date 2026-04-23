@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import db from '../models/database';
 import { Review, Booking } from '../types';
+import logger from '../utils/logger';
 
 export function createReview(req: Request, res: Response): void {
   try {
@@ -56,7 +57,7 @@ export function createReview(req: Request, res: Response): void {
       data: { id: reviewId }
     });
   } catch (error) {
-    console.error('Create review error:', error);
+    logger.error('Create review error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -110,7 +111,7 @@ export function getHotelReviews(req: Request, res: Response): void {
       }
     });
   } catch (error) {
-    console.error('Get reviews error:', error);
+    logger.error('Get reviews error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -142,7 +143,7 @@ export function deleteReview(req: Request, res: Response): void {
 
     res.json({ success: true, message: '리뷰가 삭제되었습니다.' });
   } catch (error) {
-    console.error('Delete review error:', error);
+    logger.error('Delete review error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -163,7 +164,7 @@ export function toggleWishlist(req: Request, res: Response): void {
       res.json({ success: true, message: '위시리스트에 추가되었습니다.', data: { wishlisted: true } });
     }
   } catch (error) {
-    console.error('Toggle wishlist error:', error);
+    logger.error('Toggle wishlist error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -192,7 +193,7 @@ export function getWishlist(req: Request, res: Response): void {
       }))
     });
   } catch (error) {
-    console.error('Get wishlist error:', error);
+    logger.error('Get wishlist error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
