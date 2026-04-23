@@ -16,105 +16,6 @@ DB          →  RDS MySQL + DynamoDB
 
 ---
 
-## 빠른 시작 (로컬 테스트)
-
-백엔드(API + MySQL + DynamoDB)는 Docker로, 프론트엔드는 http-server로 실행합니다.
-
-```bash
-# 1. Clone
-git clone https://github.com/yubin05/Project_TEAM_AWS.git
-cd Project_TEAM_AWS
-
-# 2. 백엔드 스택 실행 (Backend + MySQL + DynamoDB Local)
-docker compose -f docker-compose.local.yml up --build -d
-
-# 3. 시드 데이터 입력 (최초 1회)
-docker compose -f docker-compose.local.yml exec backend npm run seed
-
-# 4. 프론트엔드 실행
-npm install -g http-server
-http-server frontend/public -p 8080 -c-1
-
-# 5. 접속
-# 프론트엔드:  http://localhost:8080
-# API:         http://localhost:3000/api
-# 헬스체크:    http://localhost:3000/health
-```
-
-> **`-c-1` 옵션**: 캐시 비활성화. 코드 변경 후 즉시 반영됩니다.
-
-### 데이터 초기화
-```bash
-# 볼륨 포함 전체 초기화
-docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml up --build -d
-docker compose -f docker-compose.local.yml exec backend npm run seed
-```
-
-### 로컬 환경 전제 조건
-
-**Ubuntu**
-
-```bash
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-sudo systemctl start docker
-sudo usermod -aG docker $USER   # 재로그인 후 sudo 없이 사용 가능
-```
-
-**CentOS 7 (VMware Pro Station)**
-
-```bash
-# 1. 기존 Docker 제거
-sudo yum remove -y docker docker-common docker-selinux docker-engine
-
-# 2. 필수 패키지 설치
-sudo yum install -y yum-utils device-mapper-persistent-data lvm2
-
-# 3. Docker 공식 저장소 추가
-sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-
-# 4. Docker CE + Compose 플러그인 설치
-sudo yum install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-
-# 5. Docker 시작 및 부팅 자동 실행 등록
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 6. 현재 사용자를 docker 그룹에 추가 (재로그인 필요)
-sudo usermod -aG docker $USER
-
-# 7. SELinux 설정 (컨테이너 볼륨 마운트 오류 방지)
-# 방법 A — Permissive 모드로 전환 (간단, 재부팅 후에도 유지)
-sudo setenforce 0
-sudo sed -i 's/^SELINUX=enforcing/SELINUX=permissive/' /etc/selinux/config
-
-# 방법 B — Enforcing 유지 시 볼륨에 레이블 부여 (보안 유지)
-# docker-compose.local.yml 볼륨에 :z 옵션 추가 필요
-# 예) - mysql_data:/var/lib/mysql:z
-
-# 8. 방화벽 포트 개방
-sudo firewall-cmd --permanent --add-port=80/tcp
-sudo firewall-cmd --permanent --add-port=3000/tcp
-sudo firewall-cmd --permanent --add-port=3306/tcp
-sudo firewall-cmd --permanent --add-port=8000/tcp
-sudo firewall-cmd --reload
-
-# 9. git 설치 (없는 경우)
-sudo yum install -y git
-
-# 10. 재로그인 후 docker 그룹 적용 확인
-newgrp docker
-docker --version
-docker compose version
-```
-
-> **CentOS 7 주의사항**
-> - `docker-compose` (V1, 하이픈) 대신 `docker compose` (V2, 공백) 사용
-> - SELinux Enforcing 상태에서 MySQL 볼륨 마운트 실패 시 방법 A 또는 B 적용
-> - VMware 네트워크 어댑터를 **NAT** 또는 **브리지**로 설정해야 외부 이미지 pull 가능
-
----
-
 ## Amplify 배포 (프론트엔드)
 
 #### 1. Amplify 콘솔에서 GitHub 연결
@@ -240,7 +141,16 @@ docker compose -f docker-compose.local.yml up --build -d
 docker compose -f docker-compose.local.yml exec backend npm run seed
 ```
 
-#### 4. 프론트엔드 실행 (http-server)
+#### 4. 로그 디렉토리 생성 (CloudWatch Agent 연동 시)
+
+```bash
+sudo mkdir -p /var/log/app
+sudo chown ec2-user:ec2-user /var/log/app
+```
+
+> 앱 실행 시 `LOG_DIR=/var/log/app`이 자동으로 적용되어 `/var/log/app/app.log`, `/var/log/app/error.log`에 로그가 쌓입니다.
+
+#### 5. 프론트엔드 실행 (http-server) - Amplify 미적용 시
 
 ```bash
 # Node.js 설치 (없는 경우)
@@ -257,7 +167,7 @@ http-server ~/Project_TEAM_AWS/frontend/public -p 8080 -c-1
 nohup http-server ~/Project_TEAM_AWS/frontend/public -p 8080 -c-1 &
 ```
 
-#### 5. 접속 확인
+#### 6. 접속 확인
 
 ```
 프론트엔드:  http://<EC2 퍼블릭 IP>:8080
