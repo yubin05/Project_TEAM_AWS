@@ -28,6 +28,8 @@ export interface Hotel {
   rating: number;
   review_count: number;
   is_active: boolean;
+  video_url?: string | null;
+  video_status?: 'none' | 'processing' | 'ready';
   created_at: string;
   updated_at: string;
 }

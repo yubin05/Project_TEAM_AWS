@@ -1,5 +1,3 @@
-// ===== Config =====
-const API_BASE = '/api';
 
 // ===== State =====
 let state = {
@@ -50,6 +48,10 @@ async function api(endpoint, options = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
   const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers: { ...headers, ...options.headers } });
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error(`서버 오류 (${res.status}): 백엔드 서버에 연결할 수 없습니다.`);
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || '오류가 발생했습니다.');
   return data;
@@ -70,6 +72,7 @@ function navigateTo(page, params = {}) {
     case 'bookings': loadMyBookings(); break;
     case 'wishlist': loadWishlist(); break;
     case 'profile': loadProfile(); break;
+    case 'admin': loadAdminPage(); break;
   }
 }
 
@@ -161,6 +164,19 @@ function setupEventListeners() {
   document.getElementById('booking-form').addEventListener('submit', handleBooking);
   document.getElementById('book-checkin').addEventListener('change', updatePriceBreakdown);
   document.getElementById('book-checkout').addEventListener('change', updatePriceBreakdown);
+
+  // Admin tabs
+  document.querySelectorAll('.admin-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      switchAdminTab(tab.dataset.tab);
+      if (tab.dataset.tab === 'bookings') loadAdminBookings();
+      if (tab.dataset.tab === 'hotels') loadAdminHotels();
+    });
+  });
+
+  // Admin forms
+  document.getElementById('admin-hotel-form').addEventListener('submit', handleAdminHotelSubmit);
+  document.getElementById('admin-room-form').addEventListener('submit', handleAdminRoomSubmit);
 }
 
 // ===== Auth =====
@@ -227,6 +243,8 @@ function updateAuthUI() {
   const navBookings = document.getElementById('nav-bookings');
   const navWishlist = document.getElementById('nav-wishlist');
 
+  const isAdmin = state.user && (state.user.role === 'admin' || state.user.role === 'host');
+
   if (state.user) {
     authButtons.style.display = 'none';
     userMenu.style.display = 'flex';
@@ -235,11 +253,15 @@ function updateAuthUI() {
     document.getElementById('user-initials').textContent = state.user.name[0].toUpperCase();
     document.getElementById('user-name-display').textContent = state.user.name;
     document.getElementById('user-email-display').textContent = state.user.email;
+    document.getElementById('nav-admin').style.display = isAdmin ? 'block' : 'none';
+    document.getElementById('dropdown-admin').style.display = isAdmin ? 'block' : 'none';
   } else {
     authButtons.style.display = 'flex';
     userMenu.style.display = 'none';
     navBookings.style.display = 'none';
     navWishlist.style.display = 'none';
+    document.getElementById('nav-admin').style.display = 'none';
+    document.getElementById('dropdown-admin').style.display = 'none';
   }
 }
 
@@ -397,6 +419,11 @@ async function loadHotelDetail(id) {
                 </div>
                 <span>📍 ${hotel.address}</span>
               </div>
+              ${hotel.video_url && hotel.video_status === 'ready' ? `
+              <h3 class="section-subtitle">숙소 소개 영상</h3>
+              <div class="hotel-video-wrap">
+                <video id="hotel-video" class="hotel-video" controls playsinline preload="metadata"></video>
+              </div>` : ''}
               <h3 class="section-subtitle">숙소 소개</h3>
               <p class="hotel-description">${hotel.description}</p>
               <h3 class="section-subtitle">체크인/체크아웃</h3>
@@ -446,6 +473,11 @@ async function loadHotelDetail(id) {
           </div>
         </div>
       </div>`;
+
+    // HLS 플레이어 초기화
+    if (hotel.video_url && hotel.video_status === 'ready') {
+      initHlsPlayer('hotel-video', hotel.video_url);
+    }
 
     // Set default dates on widget
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -786,6 +818,421 @@ function closeModal(id) {
 function closeAllModals() {
   document.querySelectorAll('.modal').forEach(m => m.classList.remove('show'));
   document.getElementById('modal-overlay').classList.remove('show');
+}
+
+// ===== Video =====
+function initHlsPlayer(videoId, src) {
+  const video = document.getElementById(videoId);
+  if (!video) return;
+  if (Hls.isSupported()) {
+    const hls = new Hls();
+    hls.loadSource(src);
+    hls.attachMedia(video);
+  } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    // Safari 네이티브 HLS
+    video.src = src;
+  }
+}
+
+function openVideoUpload(hotelId) {
+  const panel = document.getElementById(`video-upload-panel-${hotelId}`);
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
+}
+
+async function handleVideoFile(hotelId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!file.type.includes('mp4')) {
+    showToast('MP4 파일만 업로드 가능합니다.', 'error');
+    return;
+  }
+  if (file.size > 2 * 1024 * 1024 * 1024) {
+    showToast('파일 크기는 2GB 이하여야 합니다.', 'error');
+    return;
+  }
+
+  const progressWrap = document.getElementById(`video-progress-wrap-${hotelId}`);
+  const progressBar  = document.getElementById(`video-progress-${hotelId}`);
+  const progressLbl  = document.getElementById(`video-progress-label-${hotelId}`);
+  const statusEl     = document.getElementById(`video-status-${hotelId}`);
+
+  try {
+    // 1. Presigned URL 발급
+    showToast('업로드 URL을 발급받는 중...', 'info');
+    const res = await api(`/hotels/${hotelId}/video-upload-url`, { method: 'POST' });
+    const { uploadUrl } = res.data;
+
+    // 2. S3 직접 업로드 (XMLHttpRequest로 진행률 표시)
+    progressWrap.style.display = 'flex';
+    await uploadToS3(uploadUrl, file, (pct) => {
+      progressBar.style.width = `${pct}%`;
+      progressLbl.textContent = `${pct}%`;
+    });
+
+    statusEl.textContent  = '⏳ 변환 중 (수 분 소요)';
+    statusEl.className    = 'video-status-badge processing';
+    showToast('업로드 완료! 영상 변환이 시작됩니다.', 'success');
+
+    // 3. 변환 완료 폴링 (30초 간격, 최대 10회)
+    pollVideoStatus(hotelId, statusEl);
+
+  } catch (err) {
+    showToast(err.message, 'error');
+    progressWrap.style.display = 'none';
+  }
+}
+
+function uploadToS3(presignedUrl, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', presignedUrl);
+    xhr.setRequestHeader('Content-Type', 'video/mp4');
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+    xhr.addEventListener('load', () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`S3 업로드 실패 (${xhr.status})`));
+    });
+    xhr.addEventListener('error', () => reject(new Error('네트워크 오류')));
+    xhr.send(file);
+  });
+}
+
+function pollVideoStatus(hotelId, statusEl, attempt = 0) {
+  if (attempt >= 20) return; // 최대 10분 (30초 × 20)
+  setTimeout(async () => {
+    try {
+      const res = await api(`/hotels/${hotelId}/video-status`);
+      const { video_status, video_url } = res.data;
+      if (video_status === 'ready') {
+        statusEl.textContent = '✅ 영상 준비 완료';
+        statusEl.className   = 'video-status-badge ready';
+        showToast('영상 변환이 완료되었습니다!', 'success');
+      } else {
+        pollVideoStatus(hotelId, statusEl, attempt + 1);
+      }
+    } catch {}
+  }, 30000);
+}
+
+// ===== Admin =====
+const adminState = { selectedHotelId: null };
+
+async function loadAdminPage() {
+  if (!state.user || (state.user.role !== 'admin' && state.user.role !== 'host')) {
+    navigateTo('home');
+    showToast('접근 권한이 없습니다.', 'error');
+    return;
+  }
+  switchAdminTab('hotels');
+  loadAdminStats();
+  loadAdminHotels();
+}
+
+function switchAdminTab(tab) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector(`.admin-tab[data-tab="${tab}"]`)?.classList.add('active');
+  document.getElementById(`admin-tab-${tab}`)?.classList.add('active');
+}
+
+async function loadAdminStats() {
+  try {
+    const [hotelsRes, bookingsRes] = await Promise.all([
+      api('/hotels/mine'),
+      api('/bookings/host')
+    ]);
+    const hotels = hotelsRes.data;
+    const bookings = bookingsRes.data;
+    const roomCount = hotels.reduce((sum, h) => sum + (Number(h.room_count) || 0), 0);
+    const confirmedCount = bookings.filter(b => b.status === 'confirmed').length;
+    const revenue = bookings
+      .filter(b => b.status !== 'cancelled')
+      .reduce((sum, b) => sum + Number(b.total_price), 0);
+
+    document.getElementById('admin-stats').innerHTML = `
+      <div class="admin-stat-card">
+        <div class="stat-value">${hotels.length}</div>
+        <div class="stat-label">등록 숙소</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="stat-value">${roomCount}</div>
+        <div class="stat-label">총 객실</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="stat-value">${confirmedCount}</div>
+        <div class="stat-label">확정 예약</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="stat-value">${Math.floor(revenue).toLocaleString()}원</div>
+        <div class="stat-label">총 매출</div>
+      </div>`;
+  } catch {}
+}
+
+async function loadAdminHotels() {
+  const container = document.getElementById('admin-hotels-list');
+  container.innerHTML = '<div class="loading-spinner">숙소 목록을 불러오는 중...</div>';
+  try {
+    const res = await api('/hotels/mine');
+    const hotels = res.data;
+    if (hotels.length === 0) {
+      container.innerHTML = `<div class="empty-state">
+        <div class="empty-icon">🏨</div>
+        <p>등록된 숙소가 없습니다.<br>
+        <a href="#" onclick="switchAdminTab('add-hotel')" style="color:var(--primary);font-weight:600">첫 번째 숙소를 등록해보세요</a></p>
+      </div>`;
+      return;
+    }
+    container.innerHTML = hotels.map(h => renderAdminHotelCard(h)).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+  }
+}
+
+function renderAdminHotelCard(hotel) {
+  const img = hotel.images && hotel.images.length > 0 ? hotel.images[0] : 'https://via.placeholder.com/120x90?text=No+Image';
+  const categoryMap = { hotel: '호텔', motel: '모텔', pension: '펜션', guesthouse: '게스트하우스', resort: '리조트', camping: '캠핑' };
+  const statusBadge = hotel.is_active
+    ? '<span class="admin-status-badge active">운영중</span>'
+    : '<span class="admin-status-badge inactive">비활성</span>';
+  const escapedName = hotel.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  return `
+    <div class="admin-hotel-card" id="admin-hotel-${hotel.id}">
+      <div class="admin-hotel-main">
+        <img src="${img}" alt="${hotel.name}" onerror="this.src='https://via.placeholder.com/120x90?text=No+Image'">
+        <div class="admin-hotel-info">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span class="hotel-badge" style="position:static;font-size:0.75rem">${categoryMap[hotel.category] || hotel.category}</span>
+            ${statusBadge}
+          </div>
+          <div class="admin-hotel-name">${hotel.name}</div>
+          <div style="font-size:0.85rem;color:var(--text-light);margin:4px 0">📍 ${hotel.address}</div>
+          <div style="font-size:0.85rem;color:var(--text-light)">객실 ${hotel.room_count || 0}개 &nbsp;·&nbsp; ⭐ ${hotel.rating || '신규'} &nbsp;·&nbsp; 리뷰 ${hotel.review_count || 0}개</div>
+        </div>
+        <div class="admin-hotel-actions">
+          <button class="btn btn-outline" style="font-size:0.85rem" onclick="toggleRoomPanel('${hotel.id}', '${escapedName}')">객실 관리</button>
+          <button class="btn btn-outline" style="font-size:0.85rem" onclick="openVideoUpload('${hotel.id}')">
+            ${hotel.video_status === 'ready' ? '영상 재등록' : hotel.video_status === 'processing' ? '변환중...' : '영상 등록'}
+          </button>
+          <button class="btn btn-outline" style="font-size:0.85rem" onclick="toggleHotelStatus('${hotel.id}', ${hotel.is_active})">
+            ${hotel.is_active ? '비활성화' : '활성화'}
+          </button>
+        </div>
+        <div id="video-upload-panel-${hotel.id}" class="video-upload-panel" style="display:none">
+          <div class="video-upload-inner">
+            <div class="video-status-badge ${hotel.video_status || 'none'}" id="video-status-${hotel.id}">
+              ${ hotel.video_status === 'ready' ? '✅ 영상 준비 완료' : hotel.video_status === 'processing' ? '⏳ 변환 중 (수 분 소요)' : '영상 없음' }
+            </div>
+            <div class="video-upload-area">
+              <input type="file" id="video-file-${hotel.id}" accept="video/mp4" style="display:none" onchange="handleVideoFile('${hotel.id}', this)">
+              <button class="btn btn-primary" style="font-size:0.85rem" onclick="document.getElementById('video-file-${hotel.id}').click()">MP4 파일 선택</button>
+              <span style="font-size:0.82rem;color:var(--text-light);margin-left:12px">최대 2GB · MP4 형식만 지원</span>
+            </div>
+            <div class="video-progress-wrap" id="video-progress-wrap-${hotel.id}" style="display:none">
+              <div class="video-progress-bar">
+                <div class="video-progress-fill" id="video-progress-${hotel.id}" style="width:0%"></div>
+              </div>
+              <span id="video-progress-label-${hotel.id}" style="font-size:0.85rem;color:var(--text-light)">0%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-room-panel" id="rooms-panel-${hotel.id}" style="display:none"></div>
+    </div>`;
+}
+
+async function toggleRoomPanel(hotelId, hotelName) {
+  const panel = document.getElementById(`rooms-panel-${hotelId}`);
+  if (panel.style.display === 'block') {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  await renderRoomPanel(hotelId, hotelName);
+}
+
+async function renderRoomPanel(hotelId, hotelName) {
+  const panel = document.getElementById(`rooms-panel-${hotelId}`);
+  panel.innerHTML = '<div class="loading-spinner" style="padding:20px">객실 정보를 불러오는 중...</div>';
+  try {
+    const res = await api(`/hotels/${hotelId}`);
+    const rooms = res.data.rooms;
+    const displayName = hotelName || res.data.name;
+    panel.innerHTML = `
+      <div class="admin-room-panel-inner">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h4 style="font-size:1rem;font-weight:700">${displayName} — 객실 목록</h4>
+          <button class="btn btn-primary" style="font-size:0.85rem;padding:8px 16px" onclick="openAddRoomModal('${hotelId}')">+ 객실 추가</button>
+        </div>
+        ${rooms.length === 0
+          ? '<div class="empty-state" style="padding:30px 0"><p>등록된 객실이 없습니다.</p></div>'
+          : rooms.map(room => renderAdminRoomRow(room)).join('')}
+      </div>`;
+  } catch (err) {
+    panel.innerHTML = `<div style="padding:20px;color:var(--danger)">${err.message}</div>`;
+  }
+}
+
+function renderAdminRoomRow(room) {
+  const typeMap = { standard: '스탠다드', deluxe: '디럭스', suite: '스위트', family: '패밀리', dormitory: '도미토리' };
+  const price = Math.floor(room.price_per_night);
+  const discounted = Math.floor(room.discounted_price || price);
+  return `
+    <div class="admin-room-row">
+      <div>
+        <span class="room-type-badge">${typeMap[room.type] || room.type}</span>
+        <span style="font-weight:600;margin-left:8px">${room.name}</span>
+      </div>
+      <div style="font-size:0.85rem;color:var(--text-light)">최대 ${room.capacity}명</div>
+      <div>
+        ${room.discount_rate > 0 ? `<span style="text-decoration:line-through;color:var(--text-light);font-size:0.8rem;margin-right:4px">${price.toLocaleString()}원</span>` : ''}
+        <strong>${discounted.toLocaleString()}원</strong><span style="color:var(--text-light);font-size:0.8rem">/박</span>
+        ${room.discount_rate > 0 ? `<span style="color:var(--danger);font-size:0.8rem;margin-left:4px">-${room.discount_rate}%</span>` : ''}
+      </div>
+      <span class="booking-status ${room.is_available ? 'status-confirmed' : 'status-cancelled'}">${room.is_available ? '판매중' : '판매중지'}</span>
+    </div>`;
+}
+
+function openAddRoomModal(hotelId) {
+  adminState.selectedHotelId = hotelId;
+  document.getElementById('admin-room-error').textContent = '';
+  document.getElementById('admin-room-form').reset();
+  openModal('modal-room');
+}
+
+async function handleAdminHotelSubmit(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('admin-hotel-error');
+  errEl.textContent = '';
+
+  const amenities = [...document.querySelectorAll('#ah-amenities-grid input:checked')].map(cb => cb.value);
+  const imagesRaw = document.getElementById('ah-images').value.trim();
+  const images = imagesRaw ? imagesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const body = {
+    name:           document.getElementById('ah-name').value,
+    description:    document.getElementById('ah-description').value,
+    category:       document.getElementById('ah-category').value,
+    address:        document.getElementById('ah-address').value,
+    city:           document.getElementById('ah-city').value,
+    region:         document.getElementById('ah-region').value,
+    check_in_time:  document.getElementById('ah-checkin-time').value,
+    check_out_time: document.getElementById('ah-checkout-time').value,
+    amenities, images,
+  };
+
+  try {
+    await api('/hotels', { method: 'POST', body: JSON.stringify(body) });
+    showToast('숙소가 등록되었습니다!', 'success');
+    document.getElementById('admin-hotel-form').reset();
+    switchAdminTab('hotels');
+    loadAdminHotels();
+    loadAdminStats();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+}
+
+async function handleAdminRoomSubmit(e) {
+  e.preventDefault();
+  const errEl = document.getElementById('admin-room-error');
+  errEl.textContent = '';
+
+  const hotelId = adminState.selectedHotelId;
+  if (!hotelId) return;
+
+  const amenities = [...document.querySelectorAll('#admin-room-form .admin-amenities-grid input:checked')].map(cb => cb.value);
+  const imagesRaw = document.getElementById('ar-images').value.trim();
+  const images = imagesRaw ? imagesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+
+  const body = {
+    name:           document.getElementById('ar-name').value,
+    description:    document.getElementById('ar-description').value,
+    type:           document.getElementById('ar-type').value,
+    capacity:       Number(document.getElementById('ar-capacity').value),
+    price_per_night: Number(document.getElementById('ar-price').value),
+    discount_rate:  Number(document.getElementById('ar-discount').value) || 0,
+    amenities, images,
+  };
+
+  try {
+    await api(`/hotels/${hotelId}/rooms`, { method: 'POST', body: JSON.stringify(body) });
+    showToast('객실이 등록되었습니다!', 'success');
+    closeAllModals();
+    renderRoomPanel(hotelId, '');
+    loadAdminStats();
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+}
+
+async function toggleHotelStatus(hotelId, currentStatus) {
+  try {
+    await api(`/hotels/${hotelId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ is_active: !currentStatus })
+    });
+    showToast(`숙소가 ${!currentStatus ? '활성화' : '비활성화'}되었습니다.`, 'success');
+    loadAdminHotels();
+    loadAdminStats();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadAdminBookings() {
+  const container = document.getElementById('admin-bookings-list');
+  container.innerHTML = '<div class="loading-spinner">예약 현황을 불러오는 중...</div>';
+  try {
+    const res = await api('/bookings/host');
+    const bookings = res.data;
+    if (!bookings || bookings.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>예약 내역이 없습니다.</p></div>';
+      return;
+    }
+    const statusLabels = { confirmed: '확정', pending: '대기중', cancelled: '취소', completed: '완료' };
+    container.innerHTML = `
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>예약자</th>
+              <th>숙소 / 객실</th>
+              <th>체크인</th>
+              <th>체크아웃</th>
+              <th>인원</th>
+              <th>금액</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bookings.map(b => `
+              <tr>
+                <td>
+                  <strong>${b.guest_name || '-'}</strong><br>
+                  <span style="font-size:0.8rem;color:var(--text-light)">${b.guest_email || ''}</span>
+                </td>
+                <td>
+                  <strong>${b.hotel_name}</strong><br>
+                  <span style="font-size:0.85rem;color:var(--text-light)">${b.room_name}</span>
+                </td>
+                <td>${new Date(b.check_in_date).toLocaleDateString('ko-KR')}</td>
+                <td>${new Date(b.check_out_date).toLocaleDateString('ko-KR')}</td>
+                <td>${b.guests}명</td>
+                <td><strong>${Math.floor(b.total_price).toLocaleString()}원</strong></td>
+                <td><span class="booking-status status-${b.status}">${statusLabels[b.status] || b.status}</span></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+  }
 }
 
 // ===== Toast =====

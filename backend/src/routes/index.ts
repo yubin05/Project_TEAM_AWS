@@ -3,10 +3,11 @@ import { register, login, getProfile, updateProfile, changePassword } from '../c
 import {
   searchHotels, getHotelById, createHotel, updateHotel,
   getRoomById, createRoom, checkRoomAvailability,
-  getFeaturedHotels, getRegions
+  getFeaturedHotels, getRegions, getMyHotels
 } from '../controllers/hotelController';
 import { createBooking, getUserBookings, getBookingById, cancelBooking, getHostBookings } from '../controllers/bookingController';
 import { createReview, getHotelReviews, deleteReview, toggleWishlist, getWishlist } from '../controllers/reviewController';
+import { getVideoUploadUrl, updateVideoUrl, getVideoStatus } from '../controllers/videoController';
 import { authenticateToken, requireRole } from '../middleware/auth';
 
 const router = Router();
@@ -21,6 +22,7 @@ router.put('/auth/password', authenticateToken, changePassword);
 // Hotel routes
 router.get('/hotels/featured', getFeaturedHotels);
 router.get('/hotels/regions', getRegions);
+router.get('/hotels/mine', authenticateToken, requireRole('host', 'admin'), getMyHotels);
 router.get('/hotels/search', searchHotels);
 router.get('/hotels/:id', getHotelById);
 router.post('/hotels', authenticateToken, requireRole('host', 'admin'), createHotel);
@@ -42,6 +44,11 @@ router.delete('/bookings/:id', authenticateToken, cancelBooking);
 router.get('/hotels/:hotelId/reviews', getHotelReviews);
 router.post('/reviews', authenticateToken, createReview);
 router.delete('/reviews/:id', authenticateToken, deleteReview);
+
+// Video routes
+router.post('/hotels/:id/video-upload-url', authenticateToken, requireRole('host', 'admin'), getVideoUploadUrl);
+router.post('/hotels/:id/video-url', updateVideoUrl);   // Lambda 콜백 (secret으로 인증)
+router.get('/hotels/:id/video-status', getVideoStatus);
 
 // Wishlist routes
 router.post('/wishlist/:hotelId', authenticateToken, toggleWishlist);

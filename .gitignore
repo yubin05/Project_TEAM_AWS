@@ -69,6 +69,8 @@ web_modules/
 .env
 .env.*
 !.env.example
+!.env.local       # 로컬 테스트용 (민감 정보 없음, 커밋 허용)
+!.env.aws.example # AWS 예시 파일 (커밋 허용)
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
