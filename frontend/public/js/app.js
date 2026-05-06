@@ -435,14 +435,17 @@ async function loadHotelDetail(id) {
               <div class="amenities-list">
                 ${hotel.amenities.map(a => `<div class="amenity-item">${amenityIcons[a] || '✓'} ${a}</div>`).join('')}
               </div>
+              ${hotel.latitude && hotel.longitude ? `
+              <h3 class="section-subtitle">위치</h3>
+              <div id="hotel-map" style="width:100%;height:320px;border-radius:12px;overflow:hidden;margin-bottom:24px"></div>
+              ` : ''}
               <h3 class="section-subtitle">객실 선택</h3>
               <div class="rooms-list">
                 ${hotel.rooms.map(room => renderRoomCard(room, hotel)).join('')}
               </div>
               <h3 class="section-subtitle">리뷰 (${hotel.review_count}개)</h3>
               <div id="hotel-reviews-section">
-                ${hotel.reviews.slice(0, 3).map(r => renderReviewCard(r)).join('') || '<p style="color:var(--text-light)">아직 리뷰가 없습니다.</p>'}
-                ${hotel.review_count > 3 ? `<button class="btn btn-outline" onclick="loadAllReviews('${hotel.id}')">리뷰 더보기</button>` : ''}
+                <div class="loading-spinner" style="padding:16px 0">리뷰를 불러오는 중...</div>
               </div>
             </div>
             <div class="booking-widget">
@@ -478,6 +481,14 @@ async function loadHotelDetail(id) {
     if (hotel.video_url && hotel.video_status === 'ready') {
       initHlsPlayer('hotel-video', hotel.video_url);
     }
+
+    // Azure Maps 초기화
+    if (hotel.latitude && hotel.longitude) {
+      initAzureMap('hotel-map', hotel.latitude, hotel.longitude, hotel.name);
+    }
+
+    // 리뷰 로드 (review-service에서 별도 호출)
+    loadHotelReviews(id, hotel.review_count);
 
     // Set default dates on widget
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1233,6 +1244,71 @@ async function loadAdminBookings() {
   } catch (err) {
     container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
   }
+}
+
+// ===== Reviews =====
+async function loadHotelReviews(hotelId, reviewCount) {
+  const section = document.getElementById('hotel-reviews-section');
+  if (!section) return;
+  try {
+    const res = await api(`/hotels/${hotelId}/reviews?limit=3`);
+    const reviews = res.data?.reviews || [];
+    if (reviews.length === 0) {
+      section.innerHTML = '<p style="color:var(--text-light)">아직 리뷰가 없습니다.</p>';
+      return;
+    }
+    section.innerHTML = reviews.map(r => renderReviewCard(r)).join('');
+    if (reviewCount > 3) {
+      section.innerHTML += `<button class="btn btn-outline" onclick="loadMoreReviews('${hotelId}')">리뷰 더보기</button>`;
+    }
+  } catch {
+    section.innerHTML = '<p style="color:var(--text-light)">리뷰를 불러올 수 없습니다.</p>';
+  }
+}
+
+async function loadMoreReviews(hotelId) {
+  const section = document.getElementById('hotel-reviews-section');
+  if (!section) return;
+  try {
+    const res = await api(`/hotels/${hotelId}/reviews?limit=50`);
+    const reviews = res.data?.reviews || [];
+    section.innerHTML = reviews.map(r => renderReviewCard(r)).join('');
+  } catch {
+    showToast('리뷰를 불러올 수 없습니다.', 'error');
+  }
+}
+
+// ===== Azure Maps =====
+function initAzureMap(containerId, lat, lng, name) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!AZURE_MAPS_KEY || typeof atlas === 'undefined') {
+    container.style.display = 'none';
+    return;
+  }
+
+  const map = new atlas.Map(containerId, {
+    center:               [lng, lat],
+    zoom:                 15,
+    language:             'ko-KR',
+    authOptions: {
+      authType:        'subscriptionKey',
+      subscriptionKey: AZURE_MAPS_KEY,
+    },
+  });
+
+  map.events.add('ready', () => {
+    const marker = new atlas.HtmlMarker({
+      position: [lng, lat],
+      popup: new atlas.Popup({
+        content: `<div style="padding:8px;font-size:14px;font-weight:600">${name}</div>`,
+        pixelOffset: [0, -30],
+      }),
+    });
+    map.markers.add(marker);
+    marker.getPopup().open(map);
+  });
 }
 
 // ===== Toast =====

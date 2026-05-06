@@ -1,261 +1,117 @@
 # AI 여행 예약 플랫폼 — Project TEAM AWS
 
 야놀자 스타일의 여행 및 숙박 예약 플랫폼.  
-**프론트엔드는 AWS Amplify**, **백엔드는 Docker(ECS) 또는 로컬 Docker**로 실행합니다.
+모놀리식 백엔드를 **4개 마이크로서비스**로 분리한 구조입니다.
 
 ---
 
 ## 아키텍처
 
 ```
-프론트엔드  →  AWS Amplify (정적 호스팅)
-백엔드      →  ECR + ECS (Fargate) 또는 로컬 Docker
-DB          →  RDS MySQL + DynamoDB
-인증        →  AWS Cognito
+[Browser]
+    │
+    ▼
+[nginx :80]  ── 정적 파일 (frontend/public)
+    │
+    ├── /api/auth/*          → auth-service    :3001  (auth_db)
+    ├── /api/reviews/*       → review-service  :3004  (review_db)
+    ├── /api/hotels/*/reviews→ review-service  :3004
+    ├── /api/bookings/*      → booking-service :3003  (booking_db)
+    └── /api/*               → hotel-service   :3002  (hotel_db)
+
+[ElasticMQ :9324]  ── SQS 로컬 대체 (리뷰 → 평점 업데이트)
+[MySQL :3306]      ── 4개 DB (auth_db / hotel_db / booking_db / review_db)
+[DynamoDB Local :8000]
 ```
+
+### 서비스 간 통신
+
+| 호출 방향 | 방법 | 용도 |
+|-----------|------|------|
+| booking-service → hotel-service | HTTP `x-internal-secret` | 예약 시 객실 정보 조회 |
+| review-service → booking-service | HTTP `x-internal-secret` | 리뷰 작성 시 예약 확인 |
+| review-service → ElasticMQ | SQS Publish | 리뷰 생성/삭제 시 평점 갱신 요청 |
+| hotel-service ← ElasticMQ | SQS Consume | 메시지 수신 후 review-service에서 평점 집계 후 DB 업데이트 |
 
 ---
 
-## Amplify 배포 (프론트엔드)
+## 로컬 테스트
 
-#### 1. Amplify 콘솔에서 GitHub 연결
-```
-AWS Amplify 콘솔 → 새 앱 → GitHub 저장소 연결
-브랜치: main
-```
+### 사전 준비
 
-#### 2. 환경변수 설정
-```
-Amplify 콘솔 → 앱 설정 → 환경변수
-API_URL = https://<백엔드-도메인>   (ECS/EC2 백엔드 주소)
+- Docker Desktop 설치 및 실행
+
+### 1. 컨테이너 빌드 및 실행
+
+```bash
+docker compose -f docker-compose.local.yml up --build -d
 ```
 
-#### 3. 빌드 설정
-루트의 `amplify.yml`이 자동으로 사용됩니다.  
-빌드 시 `config.js`에 백엔드 URL이 자동 주입됩니다.
+### 2. 시드 데이터 입력 (최초 1회)
 
-#### 4. 백엔드 CORS 설정
-```env
-# backend/.env.aws
-CORS_ORIGIN=https://<amplify-app-id>.amplifyapp.com
+```bash
+docker compose -f docker-compose.local.yml exec auth-service    npm run seed
+docker compose -f docker-compose.local.yml exec hotel-service   npm run seed
+docker compose -f docker-compose.local.yml exec booking-service npm run seed
+docker compose -f docker-compose.local.yml exec review-service  npm run seed
+```
+
+### 3. 접속
+
+```
+http://localhost
+```
+
+### 테스트 계정
+
+| 역할 | 이메일 | 비밀번호 |
+|------|--------|---------|
+| 관리자 | admin@travel.com | password123 |
+| 호스트 1 | host@travel.com | password123 |
+| 호스트 2 | host2@travel.com | password123 |
+| 일반 사용자 | user@travel.com | password123 |
+
+### 서비스별 헬스체크
+
+```bash
+curl http://localhost/health                   # nginx
+curl http://localhost:3001/health              # auth-service
+curl http://localhost:3002/health              # hotel-service
+curl http://localhost:3003/health              # booking-service
+curl http://localhost:3004/health              # review-service
+```
+
+### 로그 확인
+
+```bash
+docker compose -f docker-compose.local.yml logs -f auth-service
+docker compose -f docker-compose.local.yml logs -f hotel-service
+docker compose -f docker-compose.local.yml logs -f booking-service
+docker compose -f docker-compose.local.yml logs -f review-service
+```
+
+### 전체 초기화
+
+```bash
+docker compose -f docker-compose.local.yml down -v
+docker compose -f docker-compose.local.yml up --build -d
 ```
 
 ---
 
 ## 실행 모드
 
-`APP_MODE` 환경변수로 두 가지 모드를 전환합니다.
+각 서비스의 `APP_MODE` 환경변수로 전환합니다.
 
 | 항목 | `local` (기본값) | `aws` |
 |------|-----------------|-------|
-| 인증 | 자체 JWT | AWS Cognito |
+| 인증 | 자체 JWT (12h) | AWS Cognito |
 | 데이터베이스 | MySQL 컨테이너 | RDS MySQL |
 | NoSQL | DynamoDB Local | DynamoDB |
-| 번역 | Mock (원본 반환) | Amazon Translate |
+| 번역 | 미적용 (원본 반환) | Azure Translator |
+| AI 추천 | 하드코딩 Fallback | AWS Bedrock (Claude 3 Haiku) |
+| SQS | ElasticMQ 컨테이너 | AWS SQS |
 | 자격증명 | 더미 키 | IAM Role 자동 처리 |
-
-```bash
-# 로컬 모드 실행
-docker compose -f docker-compose.local.yml up --build -d
-
-# AWS 연동 모드 실행 (.env.aws 파일 먼저 작성)
-cp backend/.env.aws.example backend/.env.aws
-# .env.aws 에 RDS endpoint, Cognito ID 등 실제 값 입력
-docker compose -f docker-compose.aws.yml up --build -d
-```
-
----
-
-## 테스트 계정
-
-| 역할 | 이메일 | 비밀번호 |
-|------|--------|---------|
-| 관리자 | admin@travel.com | password123 |
-| 호스트 | host@travel.com | password123 |
-| 일반 | user@travel.com | password123 |
-
----
-
-## AWS EC2 배포
-
-### 방법 1 — EC2 1대에 docker-compose 그대로 실행 (가장 빠름)
-
-#### 1. EC2 인스턴스 생성
-- AMI: **Amazon Linux 2023** 또는 **Ubuntu 22.04**
-- 인스턴스 타입: `t3.small` 이상 (t2.micro는 메모리 부족 가능)
-- 보안 그룹 인바운드 규칙:
-
-| 포트 | 프로토콜 | 소스 |
-|------|---------|------|
-| 22 | TCP | 내 IP |
-| 80 | TCP | 0.0.0.0/0 |
-| 3000 | TCP | 0.0.0.0/0 |
-
-#### 2. EC2 접속 후 환경 세팅
-
-```bash
-# Amazon Linux 2023
-sudo yum install -y docker git
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker ec2-user
-
-# Docker Compose 플러그인 설치
-sudo mkdir -p /usr/local/lib/docker/cli-plugins
-sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
-  -o /usr/local/lib/docker/cli-plugins/docker-compose
-sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
-# Docker BuildX 업데이트
-sudo curl -SL https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64 \
-  -o /usr/local/lib/docker/cli-plugins/docker-buildx
-sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
-
-# 재로그인 (docker 그룹 적용)
-exit
-```
-
-```bash
-# Ubuntu 22.04
-sudo apt update && sudo apt install -y docker.io docker-compose-plugin git
-sudo systemctl start docker
-sudo usermod -aG docker ubuntu
-exit   # 재로그인
-```
-
-#### 3. 배포 및 실행
-
-```bash
-# 메모리 부족 상황을 대비한 스왑 파일 추가
-sudo dd if=/dev/zero of=/swapfile bs=128M count=16
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
-
-# 프로젝트 복제(다운로드)
-git clone https://github.com/yubin05/Project_TEAM_AWS.git
-cd Project_TEAM_AWS
-
-# 백엔드 빌드 및 실행
-docker compose -f docker-compose.local.yml up --build -d
-docker compose -f docker-compose.local.yml exec backend npm run seed
-```
-
-#### 4. 로그 디렉토리 생성 (CloudWatch Agent 연동 시)
-
-```bash
-sudo mkdir -p /var/log/app
-sudo chown ec2-user:ec2-user /var/log/app
-```
-
-> 앱 실행 시 `LOG_DIR=/var/log/app`이 자동으로 적용되어 `/var/log/app/app.log`, `/var/log/app/error.log`에 로그가 쌓입니다.
-
-#### 5. 프론트엔드 실행 (http-server) - Amplify 미적용 시
-
-```bash
-# Node.js 설치 (없는 경우)
-sudo yum install -y nodejs   # Amazon Linux
-# sudo apt install -y nodejs  # Ubuntu
-
-# http-server 설치 및 실행
-sudo npm install -g http-server
-http-server ~/Project_TEAM_AWS/frontend/public -p 8080 -c-1
-```
-
-백그라운드 실행:
-```bash
-nohup http-server ~/Project_TEAM_AWS/frontend/public -p 8080 -c-1 &
-```
-
-#### 6. 접속 확인
-
-```
-프론트엔드:  http://<EC2 퍼블릭 IP>:8080
-API:         http://<EC2 퍼블릭 IP>:3000/api
-```
-
-> 보안 그룹 인바운드에 **8080 포트** 추가 필요
-
----
-
-### 방법 2 — EC2 2대 + RDS MySQL
-
-프론트엔드 EC2 / 백엔드 EC2 분리, DB는 RDS로 교체합니다.
-
-#### 1. RDS 생성
-- 엔진: MySQL 8.0
-- 인스턴스: `db.t3.micro`
-- DB명: `travel_booking`
-- 퍼블릭 액세스: **비활성화**
-- 보안 그룹: 백엔드 EC2 SG에서 포트 3306 허용
-
-#### 2. 백엔드 EC2 환경변수 설정
-
-```bash
-# .env.local 기반으로 DB_HOST만 RDS 엔드포인트로 변경
-cat > backend/.env.local << 'EOF'
-APP_MODE=local
-DB_HOST=<rds-endpoint>.rds.amazonaws.com
-JWT_SECRET=local-dev-secret-key-2024
-DYNAMO_ENDPOINT=http://dynamodb-local:8000
-EOF
-```
-
-#### 3. docker-compose에서 mysql 서비스 제거
-
-`docker-compose.local.yml`의 `mysql` 서비스와 백엔드 `depends_on.mysql` 항목을 제거하고 실행:
-
-```bash
-docker compose -f docker-compose.local.yml up --build -d
-docker compose -f docker-compose.local.yml exec backend npm run seed
-```
-
----
-
-### 방법 3 — 풀 AWS 모드 (Cognito + RDS + DynamoDB + Translate)
-
-#### 1. 필요한 AWS 리소스 준비
-- **Cognito**: User Pool 생성, `custom:role` 속성 추가
-- **RDS**: MySQL 8.0, DB명 `travel_booking`
-- **DynamoDB**: 테이블 `TravelBookingCache` 생성 (파티션 키: `pk`)
-- **IAM Role**: EC2에 DynamoDB + Translate 권한 부여
-
-#### 2. 환경변수 작성
-
-```bash
-cp backend/.env.aws.example backend/.env.aws
-```
-
-```env
-APP_MODE=aws
-DB_HOST=<rds-endpoint>.rds.amazonaws.com
-DB_USER=admin
-DB_PASSWORD=<password>
-DB_NAME=travel_booking
-COGNITO_USER_POOL_ID=ap-northeast-2_XXXXXXXXX
-COGNITO_CLIENT_ID=<client-id>
-DYNAMO_TABLE=TravelBookingCache
-AWS_REGION=ap-northeast-2
-CORS_ORIGIN=http://<frontend-ec2-ip>
-```
-
-#### 3. 실행
-
-```bash
-docker compose -f docker-compose.aws.yml up --build -d
-```
-
-> **IAM Role 권한 정책 예시**
-> ```json
-> {
->   "Effect": "Allow",
->   "Action": [
->     "dynamodb:GetItem", "dynamodb:PutItem",
->     "translate:TranslateText"
->   ],
->   "Resource": "*"
-> }
-> ```
 
 ---
 
@@ -263,51 +119,70 @@ docker compose -f docker-compose.aws.yml up --build -d
 
 ```
 Project_TEAM_AWS/
-├── amplify.yml                     Amplify 빌드 스펙
-├── docker-compose.local.yml        로컬 테스트 (백엔드만)
+├── docker-compose.local.yml        로컬 전체 스택 실행
 ├── docker-compose.aws.yml          AWS 연동 버전
+├── nginx/
+│   └── nginx.conf                  API Gateway + 정적 파일 서빙
+├── elasticmq/
+│   └── elasticmq.conf              로컬 SQS (rating-queue)
+├── scripts/
+│   └── init-databases.sql          4개 DB 생성 초기화
+├── cloudwatch/
+│   └── amazon-cloudwatch-agent.json  서비스별 로그 그룹 설정
 │
-├── frontend/                       → AWS Amplify로 배포
+├── frontend/
 │   └── public/
-│       ├── index.html
+│       ├── index.html              Azure Maps SDK 로드
 │       ├── css/style.css
 │       └── js/
-│           ├── config.js           API URL 설정 (환경별 자동 교체)
+│           ├── config.js           API_BASE, AZURE_MAPS_KEY
 │           └── app.js
 │
-└── backend/
-    ├── Dockerfile                  멀티스테이지 빌드
-    ├── .env.local                  로컬 환경변수 (커밋됨)
-    ├── .env.aws.example            AWS 환경변수 템플릿
-    └── src/
-        ├── app.ts                  서버 진입점
-        ├── config/
-        │   └── index.ts            APP_MODE 기반 환경 설정
-        ├── controllers/
-        │   ├── authController.ts
-        │   ├── hotelController.ts
-        │   ├── bookingController.ts
-        │   └── reviewController.ts
-        ├── middleware/
-        │   └── auth.ts             로컬 JWT / Cognito 분기
-        ├── models/
-        │   ├── pool.ts             MySQL2 커넥션 풀
-        │   ├── database.ts         MySQL 스키마 초기화
-        │   └── dynamo.ts           DynamoDB 클라이언트 + 번역 캐시
-        ├── services/
-        │   └── translateService.ts Amazon Translate + DynamoDB 캐시
-        ├── routes/
-        │   └── index.ts
-        ├── types/
-        │   └── index.ts
-        └── seed.ts                 시드 데이터
+└── services/
+    ├── auth-service/               포트 3001 | auth_db
+    │   └── src/
+    │       ├── config/             Secrets Manager 연동
+    │       ├── middleware/auth.ts  JWT 생성(12h) / Cognito 검증
+    │       ├── models/             users 테이블
+    │       ├── controllers/authController.ts
+    │       ├── routes/
+    │       └── seed.ts             6명 사용자 (admin/host×2/user×3)
+    │
+    ├── hotel-service/              포트 3002 | hotel_db
+    │   └── src/
+    │       ├── config/             SQS, Azure Translator, Bedrock 설정
+    │       ├── services/
+    │       │   ├── translateService.ts   Azure Translator (인메모리 캐시)
+    │       │   └── sqsConsumer.ts        평점 업데이트 SQS 소비
+    │       ├── controllers/
+    │       │   ├── hotelController.ts    getInternalRoom 포함
+    │       │   ├── videoController.ts
+    │       │   ├── wishlistController.ts
+    │       │   └── recommendController.ts  Bedrock / fallback
+    │       └── seed.ts             10개 호텔 + 30개 객실
+    │
+    ├── booking-service/            포트 3003 | booking_db
+    │   └── src/
+    │       ├── clients/hotelClient.ts    hotel-service internal HTTP
+    │       ├── controllers/bookingController.ts
+    │       │                             (비정규화: hotel_name, room_name, host_id)
+    │       └── seed.ts             6개 예약
+    │
+    └── review-service/             포트 3004 | review_db
+        └── src/
+            ├── clients/bookingClient.ts  booking-service internal HTTP
+            ├── services/sqsPublisher.ts  평점 갱신 SQS 발행
+            ├── controllers/reviewController.ts
+            │                             (비정규화: user_name)
+            └── seed.ts             8개 리뷰
 ```
 
 ---
 
 ## API 엔드포인트
 
-### 인증
+### auth-service (`/api/auth/*`, `/api/internal/users/*`)
+
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | POST | /api/auth/register | 회원가입 |
@@ -315,21 +190,27 @@ Project_TEAM_AWS/
 | GET | /api/auth/profile | 프로필 조회 |
 | PUT | /api/auth/profile | 프로필 수정 |
 | PUT | /api/auth/password | 비밀번호 변경 |
+| GET | /api/internal/users/:id | 사용자 조회 (내부 전용) |
 
-### 숙소
+### hotel-service (`/api/hotels/*`, `/api/wishlist/*`, `/api/recommend`)
+
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | GET | /api/hotels/featured | 인기 숙소 |
 | GET | /api/hotels/regions | 지역 목록 |
-| GET | /api/hotels/search | 숙소 검색 (`?lang=en` 번역 지원) |
+| GET | /api/hotels/search | 숙소 검색 (`?lang=en` 번역) |
+| GET | /api/hotels/mine | 내 숙소 (호스트) |
 | GET | /api/hotels/:id | 숙소 상세 |
-| POST | /api/hotels | 숙소 등록 (호스트) |
-| PUT | /api/hotels/:id | 숙소 수정 (호스트) |
-| GET | /api/hotels/:id/rooms/:roomId | 객실 상세 |
-| POST | /api/hotels/:id/rooms | 객실 등록 (호스트) |
-| GET | /api/hotels/:id/rooms/:roomId/availability | 가용 여부 확인 |
+| POST | /api/hotels | 숙소 등록 |
+| PUT | /api/hotels/:id | 숙소 수정 |
+| GET | /api/hotels/:hotelId/rooms/:roomId | 객실 상세 |
+| POST | /api/hotels/:hotelId/rooms | 객실 등록 |
+| POST | /api/wishlist/:hotelId | 위시리스트 토글 |
+| GET | /api/wishlist | 위시리스트 조회 |
+| POST | /api/recommend | AI 추천 |
 
-### 예약
+### booking-service (`/api/bookings/*`)
+
 | Method | Endpoint | 설명 |
 |--------|----------|------|
 | POST | /api/bookings | 예약 생성 |
@@ -338,122 +219,74 @@ Project_TEAM_AWS/
 | GET | /api/bookings/:id | 예약 상세 |
 | DELETE | /api/bookings/:id | 예약 취소 |
 
-### 리뷰 / 위시리스트
+### review-service (`/api/reviews/*`, `/api/hotels/*/reviews`)
+
 | Method | Endpoint | 설명 |
 |--------|----------|------|
-| GET | /api/hotels/:id/reviews | 리뷰 목록 |
 | POST | /api/reviews | 리뷰 작성 |
+| GET | /api/hotels/:hotelId/reviews | 리뷰 목록 |
 | DELETE | /api/reviews/:id | 리뷰 삭제 |
-| POST | /api/wishlist/:hotelId | 위시리스트 토글 |
-| GET | /api/wishlist | 위시리스트 조회 |
 
 ---
 
 ## 기술 스택
 
-### 백엔드
-- Node.js + TypeScript
+### 백엔드 (공통)
+- Node.js 20 + TypeScript
 - Express.js
 - MySQL2 (로컬 MySQL / AWS RDS)
-- AWS SDK v3 (DynamoDB, Translate)
-- jsonwebtoken / aws-jwt-verify (로컬 JWT / Cognito)
-- bcryptjs
+- jsonwebtoken / aws-jwt-verify
+- winston (로깅)
+- AWS SDK v3 (Secrets Manager, SQS, Bedrock)
+
+### 추가 서비스별
+- **hotel-service**: Azure Translator (REST), AWS Bedrock (Claude 3 Haiku)
+- **hotel-service**: @aws-sdk/client-sqs (SQS Consumer)
+- **review-service**: @aws-sdk/client-sqs (SQS Publisher)
 
 ### 프론트엔드
 - Vanilla HTML5 / CSS3 / JavaScript (ES6+)
-- Nginx (정적 서빙 + API 프록시)
-- 모바일 반응형 디자인
+- Azure Maps SDK v3 (숙소 위치 지도)
+- HLS.js (영상 스트리밍)
 
-### 인프라 (예정 — Terraform)
-- **컴퓨팅**: EC2 (Frontend + Backend) + ELB + ASG + ECR/ECS
-- **데이터**: RDS MySQL + DynamoDB
-- **인증**: AWS Cognito
-- **API**: API Gateway + WAF
-- **AI**: Bedrock + Lex + Comprehend + Rekognition + Amazon Translate
-- **배포**: CodePipeline + CodeBuild + CodeDeploy
-- **보안**: IAM + CloudTrail + SSM Parameter Store
-- **모니터링**: CloudWatch + Athena + EventBridge + SQS + SNS
-- **글로벌**: CloudFront + Route 53 + Global Accelerator
+### 인프라
+- nginx (API Gateway + 정적 파일)
+- Docker + Docker Compose
+- ElasticMQ (로컬 SQS 대체)
+- MySQL 8.0 (서비스별 독립 DB)
 
 ---
 
-## AWS 아키텍처
+## AWS 배포 (예정)
 
-```
-사용자
-  │
-  ├── Route 53 → CloudFront
-  │                  │
-  │             EC2 Frontend (Nginx)
-  │
-  └── API Gateway + WAF + Cognito
-              │
-          ELB (ALB)
-              │
-           ASG + EC2 Backend (Express.js)
-              │
-      ┌───────┼────────┐
-      │       │        │
-   RDS      DynamoDB   S3
-  MySQL    (세션/캐시) (이미지)
-              │
-          Lambda (AI/비동기)
-          ├── Amazon Translate
-          ├── Bedrock
-          ├── Comprehend
-          └── Rekognition
-```
+### 필요한 AWS 리소스
 
----
+- **Cognito**: User Pool + `custom:role` 속성
+- **RDS**: MySQL 8.0, 4개 DB (auth_db / hotel_db / booking_db / review_db)
+- **SQS**: `rating-queue`
+- **Secrets Manager**: 서비스별 시크릿 (`travel-app/auth-service` 등)
+- **Bedrock**: Claude 3 Haiku 모델 액세스 활성화
+- **CloudWatch**: 서비스별 로그 그룹 (`/travel-app/auth-service` 등)
 
-## 환경변수
-
-### 로컬 (`.env.local` — 커밋됨)
-
-```env
-APP_MODE=local
-DB_HOST=mysql
-JWT_SECRET=local-dev-secret-key-2024
-DYNAMO_ENDPOINT=http://dynamodb-local:8000
-```
-
-### AWS (`.env.aws` — `.env.aws.example` 참고, 커밋 금지)
-
-```env
-APP_MODE=aws
-DB_HOST=<rds-endpoint>.rds.amazonaws.com
-COGNITO_USER_POOL_ID=ap-northeast-2_XXXXXXXXX
-COGNITO_CLIENT_ID=<client-id>
-DYNAMO_TABLE=TravelBookingCache
-AWS_REGION=ap-northeast-2
-```
-
----
-
-## 트러블슈팅
-
-### 공통
+### EC2 배포
 
 ```bash
-# 컨테이너 상태 확인
-docker compose -f docker-compose.local.yml ps
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
 
-# 백엔드 로그
-docker compose -f docker-compose.local.yml logs backend
-
-# MySQL 로그
-docker compose -f docker-compose.local.yml logs mysql
-
-# 전체 초기화 (볼륨 포함)
-docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml up --build -d
+# 각 서비스 .env.aws 작성 후
+docker compose -f docker-compose.aws.yml up --build -d
 ```
 
-포트 충돌 시 `docker-compose.local.yml`에서 포트 번호 변경 후 재실행하세요.
+### 포트 요약
 
-| 서비스 | 기본 포트 |
-|--------|---------|
-| Frontend (Nginx) | 80 |
-| Backend (Express) | 3000 |
+| 서비스 | 포트 |
+|--------|------|
+| nginx (진입점) | 80 |
+| auth-service | 3001 |
+| hotel-service | 3002 |
+| booking-service | 3003 |
+| review-service | 3004 |
 | MySQL | 3306 |
 | DynamoDB Local | 8000 |
+| ElasticMQ | 9324 |
