@@ -1,42 +1,94 @@
 version: '3.8'
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  AWS 서비스 연동 버전 (로컬에서 실제 AWS 서비스에 연결할 때 사용)
-#  - RDS, DynamoDB, Cognito, Amazon Translate 실제 사용
-#  - .env.aws 파일에 실제 AWS 엔드포인트/자격증명 필요
+#  AWS 서비스 연동 버전 (마이크로서비스)
+#  - RDS MySQL (로컬 MySQL 컨테이너 없음)
+#  - DynamoDB / SQS / S3 / Bedrock / Secrets Manager (AWS 네이티브)
+#  - EC2 IAM Role로 AWS 자격증명 자동 처리 (별도 설정 불필요)
+#  - 프론트엔드: AWS Amplify 배포 (nginx는 API Gateway 역할만)
 #
-#  사용: docker-compose -f docker-compose.aws.yml up --build
-#
-#  ※ 실제 ECS 배포 시에는 이 파일이 아닌 Terraform infra/ 사용
+#  사용:
+#    1. 각 서비스 .env.aws 파일 작성 (.env.aws.example 참고)
+#    2. docker compose -f docker-compose.aws.yml up -d --build
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
 
-  # ── 프론트엔드 (Nginx) ───────────────────────────────────────────────────────
-  frontend:
+  # ── Services ──────────────────────────────────────────────────────────────────
+  auth-service:
     build:
-      context: ./frontend
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    env_file: ./services/auth-service/.env.aws
     ports:
-      - "80:80"
+      - '3001:3001'
+    volumes:
+      - ./logs/auth:/app/logs
+    restart: on-failure
     networks:
       - app-network
 
-  # ── 백엔드 (Express.js → AWS 서비스 연동) ────────────────────────────────────
-  backend:
+  hotel-service:
     build:
-      context: ./backend
+      context: ./services/hotel-service
+      dockerfile: Dockerfile
+    env_file: ./services/hotel-service/.env.aws
     ports:
-      - "3000:3000"
-    env_file:
-      - ./backend/.env.aws        # 실제 RDS endpoint, Cognito ID 등
+      - '3002:3002'
+    volumes:
+      - ./logs/hotel:/app/logs
+    restart: on-failure
     networks:
       - app-network
 
-    # AWS 자격증명은 EC2 IAM Role로 자동 처리됨
-    # 로컬에서 테스트 시에만 아래 주석 해제
-    # environment:
-    #   AWS_ACCESS_KEY_ID:     <your-access-key>
-    #   AWS_SECRET_ACCESS_KEY: <your-secret-key>
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    env_file: ./services/booking-service/.env.aws
+    depends_on:
+      - hotel-service
+    ports:
+      - '3003:3003'
+    volumes:
+      - ./logs/booking:/app/logs
+    restart: on-failure
+    networks:
+      - app-network
+
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    env_file: ./services/review-service/.env.aws
+    depends_on:
+      - hotel-service
+      - booking-service
+    ports:
+      - '3004:3004'
+    volumes:
+      - ./logs/review:/app/logs
+    restart: on-failure
+    networks:
+      - app-network
+
+  # ── API Gateway ───────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    ports:
+      - '80:80'
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      # Amplify로 프론트 배포 시 아래 줄 제거 가능
+      - ./frontend/public:/usr/share/nginx/html:ro
+    depends_on:
+      - auth-service
+      - hotel-service
+      - booking-service
+      - review-service
+    restart: on-failure
+    networks:
+      - app-network
 
 networks:
   app-network:
