@@ -160,6 +160,11 @@ sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-
   -o /usr/local/lib/docker/cli-plugins/docker-compose
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 
+# Docker BuildX 업데이트 (0.17.0 미만이면 compose build 오류 발생)
+sudo curl -SL https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
 # 재로그인 (docker 그룹 적용)
 exit
 ```
