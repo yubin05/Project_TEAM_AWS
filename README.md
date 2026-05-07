@@ -193,8 +193,12 @@ echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
 git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 
-# 전체 스택 빌드 및 실행 (최초 빌드 5~10분 소요)
-docker compose -f docker-compose.local.yml up --build -d
+# 한 번에 하나씩 빌드
+docker compose -f docker-compose.local.yml build --no-cache auth-service && \
+docker compose -f docker-compose.local.yml build --no-cache booking-service && \
+docker compose -f docker-compose.local.yml build --no-cache review-service && \
+docker compose -f docker-compose.local.yml build --no-cache hotel-service && \
+docker compose -f docker-compose.local.yml up -d
 
 # 빌드 진행 상황 확인
 docker compose -f docker-compose.local.yml logs -f
@@ -203,10 +207,10 @@ docker compose -f docker-compose.local.yml logs -f
 ### 5. 시드 데이터 입력 (최초 1회)
 
 ```bash
-docker compose -f docker-compose.local.yml exec auth-service    npm run seed
-docker compose -f docker-compose.local.yml exec hotel-service   npm run seed
+docker compose -f docker-compose.local.yml exec auth-service npm run seed
+docker compose -f docker-compose.local.yml exec hotel-service npm run seed
 docker compose -f docker-compose.local.yml exec booking-service npm run seed
-docker compose -f docker-compose.local.yml exec review-service  npm run seed
+docker compose -f docker-compose.local.yml exec review-service npm run seed
 ```
 
 ### 6. 접속
