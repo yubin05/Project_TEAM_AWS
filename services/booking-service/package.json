@@ -6,7 +6,7 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
-    "seed": "ts-node src/seed.ts"
+    "seed": "node dist/seed.js"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.0.0",
