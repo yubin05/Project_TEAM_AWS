@@ -131,6 +131,110 @@ docker compose -f docker-compose.local.yml up --build -d
 
 ---
 
+## EC2 단일 서버 테스트
+
+로컬 PC에 Docker를 설치하기 어려운 경우, EC2 1대에서 동일하게 테스트할 수 있습니다.
+
+### 1. EC2 인스턴스 생성
+
+| 항목 | 권장 값 |
+|------|--------|
+| AMI | Amazon Linux 2023 |
+| 인스턴스 타입 | `t3.medium` 이상 (4개 서비스 + DB 동시 실행) |
+| 스토리지 | 20GB 이상 |
+| 보안 그룹 인바운드 | SSH 22 (내 IP), HTTP 80 (0.0.0.0/0) |
+| 키 페어 | 기존 또는 새로 생성 |
+
+### 2. EC2 접속 후 환경 세팅
+
+```bash
+# Amazon Linux 2023 — Docker 설치
+sudo yum install -y docker git
+sudo systemctl start docker
+sudo systemctl enable docker
+sudo usermod -aG docker ec2-user
+
+# Docker Compose 플러그인 설치
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# 재로그인 (docker 그룹 적용)
+exit
+```
+
+SSH 재접속 후:
+
+```bash
+# 설치 확인
+docker --version
+docker compose version
+```
+
+### 3. 스왑 메모리 추가 (t3.medium 이하 권장)
+
+```bash
+sudo dd if=/dev/zero of=/swapfile bs=128M count=16
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile swap swap defaults 0 0' | sudo tee -a /etc/fstab
+```
+
+### 4. 프로젝트 클론 및 실행
+
+```bash
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
+
+# 전체 스택 빌드 및 실행 (최초 빌드 5~10분 소요)
+docker compose -f docker-compose.local.yml up --build -d
+
+# 빌드 진행 상황 확인
+docker compose -f docker-compose.local.yml logs -f
+```
+
+### 5. 시드 데이터 입력 (최초 1회)
+
+```bash
+docker compose -f docker-compose.local.yml exec auth-service    npm run seed
+docker compose -f docker-compose.local.yml exec hotel-service   npm run seed
+docker compose -f docker-compose.local.yml exec booking-service npm run seed
+docker compose -f docker-compose.local.yml exec review-service  npm run seed
+```
+
+### 6. 접속
+
+```
+http://<EC2 퍼블릭 IP>
+```
+
+> EC2 콘솔 → 인스턴스 → **퍼블릭 IPv4 주소** 확인
+
+### 트러블슈팅
+
+```bash
+# 컨테이너 상태 확인
+docker compose -f docker-compose.local.yml ps
+
+# 특정 서비스 로그
+docker compose -f docker-compose.local.yml logs -f hotel-service
+
+# 헬스체크
+curl http://localhost/health
+curl http://localhost:3001/health
+curl http://localhost:3002/health
+curl http://localhost:3003/health
+curl http://localhost:3004/health
+
+# 전체 초기화 (볼륨 포함)
+docker compose -f docker-compose.local.yml down -v
+docker compose -f docker-compose.local.yml up --build -d
+```
+
+---
+
 ## 실행 모드
 
 각 서비스의 `APP_MODE` 환경변수로 전환합니다.
