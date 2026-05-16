@@ -512,3 +512,14 @@ input, select, textarea { font-family: inherit; }
   .categories-grid { grid-template-columns: repeat(3, 1fr); }
   .regions-grid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Star rating */
+.star-rating { display: flex; gap: 6px; margin: 6px 0; }
+.star-rating .star {
+  font-size: 2rem;
+  color: var(--border);
+  cursor: pointer;
+  transition: color 0.1s;
+  user-select: none;
+}
+.star-rating .star.active { color: #f59e0b; }

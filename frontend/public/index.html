@@ -523,6 +523,37 @@
     </div>
   </div>
 
+  <!-- Review Modal -->
+  <div class="modal" id="modal-review">
+    <div class="modal-header">
+      <h3>리뷰 작성</h3>
+      <button class="modal-close" data-modal="modal-review">&times;</button>
+    </div>
+    <form id="review-form">
+      <div class="form-group">
+        <label>평점</label>
+        <div class="star-rating" id="star-rating">
+          <span class="star" data-value="1">★</span>
+          <span class="star" data-value="2">★</span>
+          <span class="star" data-value="3">★</span>
+          <span class="star" data-value="4">★</span>
+          <span class="star" data-value="5">★</span>
+        </div>
+        <input type="hidden" id="review-rating" value="0">
+      </div>
+      <div class="form-group">
+        <label>제목</label>
+        <input type="text" id="review-title" placeholder="리뷰 제목을 입력해주세요" required maxlength="255">
+      </div>
+      <div class="form-group">
+        <label>내용</label>
+        <textarea id="review-content" placeholder="숙소 이용 경험을 작성해주세요" rows="4" required style="width:100%;resize:vertical;padding:10px;border:1px solid var(--border);border-radius:8px;font-size:0.95rem"></textarea>
+      </div>
+      <div class="form-error" id="review-error"></div>
+      <button type="submit" class="btn btn-primary btn-full">리뷰 등록</button>
+    </form>
+  </div>
+
   <!-- Room Registration Modal -->
   <div class="modal modal-wide" id="modal-room">
     <div class="modal-header">

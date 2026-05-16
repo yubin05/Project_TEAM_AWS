@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupEventListeners();
   setDefaultDates();
   loadFeaturedHotels();
+  initStarRating();
   navigateTo('home');
 });
 
@@ -685,6 +686,7 @@ async function loadMyBookings() {
             <div class="booking-item-actions">
               <span class="booking-status ${statusClass}">${statusLabels[b.status] || b.status}</span>
               ${b.status !== 'cancelled' && b.status !== 'completed' ? `<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem" onclick="cancelBooking('${b.id}')">예약 취소</button>` : ''}
+              ${(b.status === 'confirmed' || b.status === 'completed') ? `<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem;color:var(--primary);border-color:var(--primary)" onclick="openReviewModal('${b.id}','${b.hotel_id}','${b.hotel_name.replace(/'/g,"\\'")}')">리뷰 작성</button>` : ''}
             </div>
           </div>
         </div>`;
@@ -713,6 +715,64 @@ async function cancelBooking(bookingId) {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// ===== Review =====
+function openReviewModal(bookingId, hotelId, hotelName) {
+  document.getElementById('review-title').value = '';
+  document.getElementById('review-content').value = '';
+  document.getElementById('review-rating').value = '0';
+  document.getElementById('review-error').textContent = '';
+  document.querySelectorAll('#star-rating .star').forEach(s => s.classList.remove('active'));
+  document.getElementById('modal-review').dataset.bookingId = bookingId;
+  document.getElementById('modal-review').dataset.hotelId   = hotelId;
+  document.getElementById('modal-review').querySelector('h3').textContent = `리뷰 작성 — ${hotelName}`;
+  openModal('modal-review');
+}
+
+async function handleSubmitReview(e) {
+  e.preventDefault();
+  const modal     = document.getElementById('modal-review');
+  const bookingId = modal.dataset.bookingId;
+  const hotelId   = modal.dataset.hotelId;
+  const rating    = Number(document.getElementById('review-rating').value);
+  const title     = document.getElementById('review-title').value.trim();
+  const content   = document.getElementById('review-content').value.trim();
+  const errorEl   = document.getElementById('review-error');
+
+  if (rating === 0) { errorEl.textContent = '별점을 선택해주세요.'; return; }
+  errorEl.textContent = '';
+
+  try {
+    await api('/reviews', {
+      method: 'POST',
+      body: JSON.stringify({ hotel_id: hotelId, booking_id: bookingId, rating, title, content }),
+    });
+    closeModal('modal-review');
+    showToast('리뷰가 등록되었습니다!', 'success');
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+}
+
+function initStarRating() {
+  const stars = document.querySelectorAll('#star-rating .star');
+  stars.forEach(star => {
+    star.addEventListener('mouseover', () => {
+      const val = Number(star.dataset.value);
+      stars.forEach(s => s.classList.toggle('active', Number(s.dataset.value) <= val));
+    });
+    star.addEventListener('mouseout', () => {
+      const selected = Number(document.getElementById('review-rating').value);
+      stars.forEach(s => s.classList.toggle('active', Number(s.dataset.value) <= selected));
+    });
+    star.addEventListener('click', () => {
+      const val = star.dataset.value;
+      document.getElementById('review-rating').value = val;
+      stars.forEach(s => s.classList.toggle('active', Number(s.dataset.value) <= Number(val)));
+    });
+  });
+  document.getElementById('review-form').addEventListener('submit', handleSubmitReview);
 }
 
 // ===== Wishlist =====
