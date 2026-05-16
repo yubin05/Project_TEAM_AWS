@@ -149,10 +149,9 @@ docker compose -f docker-compose.local.yml up --build -d
 
 ```bash
 # Amazon Linux 2023 — Docker 설치
-sudo yum install -y docker git
+sudo dnf install -y docker git
 sudo systemctl start docker
 sudo systemctl enable docker
-sudo usermod -aG docker ec2-user
 
 # Docker Compose 플러그인 설치
 sudo mkdir -p /usr/local/lib/docker/cli-plugins
@@ -164,17 +163,6 @@ sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
 sudo curl -SL https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64 \
   -o /usr/local/lib/docker/cli-plugins/docker-buildx
 sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
-
-# 재로그인 (docker 그룹 적용)
-exit
-```
-
-SSH 재접속 후:
-
-```bash
-# 설치 확인
-docker --version
-docker compose version
 ```
 
 ### 3. 스왑 메모리 추가 (t3.medium 이하 권장)
@@ -194,23 +182,23 @@ git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 
 # 한 번에 하나씩 빌드
-docker compose -f docker-compose.local.yml build --no-cache auth-service && \
-docker compose -f docker-compose.local.yml build --no-cache booking-service && \
-docker compose -f docker-compose.local.yml build --no-cache review-service && \
-docker compose -f docker-compose.local.yml build --no-cache hotel-service && \
-docker compose -f docker-compose.local.yml up -d
+sudo docker compose -f docker-compose.local.yml build --no-cache auth-service && \
+sudo docker compose -f docker-compose.local.yml build --no-cache booking-service && \
+sudo docker compose -f docker-compose.local.yml build --no-cache review-service && \
+sudo docker compose -f docker-compose.local.yml build --no-cache hotel-service && \
+sudo docker compose -f docker-compose.local.yml up -d
 
 # 빌드 진행 상황 확인
-docker compose -f docker-compose.local.yml logs -f
+sudo docker compose -f docker-compose.local.yml logs -f
 ```
 
 ### 5. 시드 데이터 입력 (최초 1회)
 
 ```bash
-docker compose -f docker-compose.local.yml exec auth-service npm run seed
-docker compose -f docker-compose.local.yml exec hotel-service npm run seed
-docker compose -f docker-compose.local.yml exec booking-service npm run seed
-docker compose -f docker-compose.local.yml exec review-service npm run seed
+sudo docker compose -f docker-compose.local.yml exec auth-service npm run seed
+sudo docker compose -f docker-compose.local.yml exec hotel-service npm run seed
+sudo docker compose -f docker-compose.local.yml exec booking-service npm run seed
+sudo docker compose -f docker-compose.local.yml exec review-service npm run seed
 ```
 
 ### 6. 접속
@@ -225,10 +213,10 @@ http://<EC2 퍼블릭 IP>
 
 ```bash
 # 컨테이너 상태 확인
-docker compose -f docker-compose.local.yml ps
+sudo docker compose -f docker-compose.local.yml ps
 
 # 특정 서비스 로그
-docker compose -f docker-compose.local.yml logs -f hotel-service
+sudo docker compose -f docker-compose.local.yml logs -f hotel-service
 
 # 헬스체크
 curl http://localhost/health
@@ -238,8 +226,173 @@ curl http://localhost:3003/health
 curl http://localhost:3004/health
 
 # 전체 초기화 (볼륨 포함)
-docker compose -f docker-compose.local.yml down -v
-docker compose -f docker-compose.local.yml up --build -d
+sudo docker compose -f docker-compose.local.yml down -v
+sudo docker compose -f docker-compose.local.yml up --build -d
+```
+
+---
+
+## EC2 각 서비스별 분리 테스트 (프론트엔드 1대, 백엔드 각 서비스별로 1대씩)
+
+### 1-1. EC2 인스턴스 생성 (프론트엔드)
+
+| 항목 | 권장 값 |
+|------|--------|
+| AMI | Amazon Linux 2023 |
+| 인스턴스 타입 | `t3.micro` |
+| 스토리지 | 기본 8GB |
+| 보안 그룹 인바운드 | SSH 22 (내 IP), HTTP 80 (0.0.0.0/0) |
+| 키 페어 | 기존 또는 새로 생성 |
+
+### 1-2. EC2 접속 후 환경 세팅
+
+```bash
+# Amazon Linux 2023 — nginx, git 설치
+sudo dnf install -y nginx git
+sudo systemctl enable --now nginx
+```
+
+### 1-3. 프로젝트 클론 및 실행
+
+```bash
+# 현재는 전체 프로젝트 클론 (frontend/public 하위 폴더만 복사하여 사용 예정)
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
+
+# 백엔드 서비스 EC2 Private IP로 교체
+sudo vi nginx/nginx.frontend.conf
+
+sudo cp nginx/nginx.frontend.conf /etc/nginx/nginx.conf
+
+# 설정 문법 확인
+sudo nginx -t
+
+# frontend/public 하위 폴더만 복사하여 사용
+sudo cp -r frontend/public/* /usr/share/nginx/html/
+sudo systemctl restart nginx
+```
+
+### 2-1. EC2 인스턴스 생성 (auth-service)
+
+| 항목 | 권장 값 |
+|------|--------|
+| AMI | Amazon Linux 2023 |
+| 인스턴스 타입 | `t3.micro` |
+| 스토리지 | 기본 8GB |
+| 보안 그룹 인바운드 | SSH 22 (내 IP), TCP 3001 (Frontend EC2 SG) |
+| 키 페어 | 기존 또는 새로 생성 |
+
+### 2-2. EC2 접속 후 환경 세팅
+
+```bash
+# Amazon Linux 2023 — Docker 설치
+sudo dnf install -y docker git
+sudo systemctl enable --now docker
+
+# Docker Compose 플러그인 설치
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+```
+
+### 2-3. 프로젝트 클론 및 실행
+
+```bash
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
+```
+
+**A. RDS 없이 로컬 MySQL로 테스트 (간단)**
+
+`.env.local` 그대로 사용, MySQL 컨테이너 함께 실행:
+
+```bash
+cat > docker-compose.auth.yml << 'EOF'
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: localpassword
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    volumes:
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-plocalpassword']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    env_file: ./services/auth-service/.env.local
+    ports:
+      - '3001:3001'
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: on-failure
+EOF
+```
+
+**B. RDS 연동 (EC2 배포)**
+
+`.env.aws` 작성:
+
+```bash
+cat > services/auth-service/.env.aws << 'EOF'
+APP_MODE=local
+PORT=3001
+DB_HOST=<RDS endpoint>
+DB_PORT=3306
+DB_USER=admin
+DB_PASSWORD=<비밀번호>
+DB_NAME=auth_db
+JWT_SECRET=<랜덤 문자열>
+INTERNAL_SECRET=<다른 서비스들과 동일한 값>
+CORS_ORIGIN=http://<Frontend EC2 Public IP>
+AWS_REGION=ap-northeast-2
+EOF
+```
+
+compose 파일:
+
+```bash
+cat > docker-compose.auth.yml << 'EOF'
+services:
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    env_file: ./services/auth-service/.env.aws
+    ports:
+      - '3001:3001'
+    restart: on-failure
+EOF
+```
+
+실행:
+
+```bash
+# Docker BuildX 업데이트 (0.17.0 미만이면 compose build 오류 발생)
+sudo curl -SL https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+
+sudo docker compose -f docker-compose.auth.yml up -d --build
+
+# 시드 데이터 입력 (최초 1회)
+sudo docker compose -f docker-compose.auth.yml exec auth-service npm run seed
+```
+
+### 헬스체크
+
+```bash
+curl http://localhost:3001/health
 ```
 
 ---
