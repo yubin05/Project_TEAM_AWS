@@ -540,8 +540,9 @@ function renderRoomCard(room, hotel) {
 function renderReviewCard(r) {
   const initial = r.user_name ? r.user_name[0].toUpperCase() : 'U';
   const date = new Date(r.created_at).toLocaleDateString('ko-KR');
+  const isOwner = state.user && state.user.id === r.user_id;
   return `
-    <div class="review-card">
+    <div class="review-card" id="review-${r.id}">
       <div class="review-header">
         <div class="reviewer">
           <div class="reviewer-avatar">${initial}</div>
@@ -550,11 +551,25 @@ function renderReviewCard(r) {
             <div class="review-date">${date}</div>
           </div>
         </div>
-        <div class="review-rating">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div class="review-rating">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</div>
+          ${isOwner ? '<button class="btn btn-outline" style="padding:2px 10px;font-size:0.78rem;color:var(--danger);border-color:var(--danger)" data-rid="' + r.id + '" onclick="deleteReview(this.dataset.rid)">삭제</button>' : ''}
+        </div>
       </div>
       <div class="review-title">${r.title}</div>
       <div class="review-content">${r.content}</div>
     </div>`;
+}
+
+async function deleteReview(reviewId) {
+  if (!confirm('리뷰를 삭제하시겠습니까?')) return;
+  try {
+    await api(`/reviews/${reviewId}`, { method: 'DELETE' });
+    document.getElementById('review-' + reviewId)?.remove();
+    showToast('리뷰가 삭제되었습니다.', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 function scrollToRooms() {
