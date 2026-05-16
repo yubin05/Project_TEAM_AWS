@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { RowDataPacket } from 'mysql2';
 import pool from '../models/pool';
 import { getInternalRoom } from '../clients/hotelClient';
+import { publishBookingNotification } from '../services/sqsPublisher';
 import { Booking } from '../types';
 import logger from '../utils/logger';
 
@@ -80,6 +81,20 @@ export async function createBooking(req: Request, res: Response): Promise<void> 
       success: true,
       message: '예약이 완료되었습니다.',
       data: { id: bookingId, total_price: totalPrice, nights, status: 'confirmed' },
+    });
+
+    // SQS 이메일 알림 (응답 후 비동기 발행 — 실패해도 예약에 영향 없음)
+    publishBookingNotification({
+      bookingId,
+      userEmail:  req.user!.email,
+      userName:   req.user!.name || req.user!.email,
+      hotelName:  room.hotel_name,
+      roomName:   room.name,
+      checkIn:    check_in_date,
+      checkOut:   check_out_date,
+      guests:     Number(guests),
+      totalPrice,
+      nights,
     });
   } catch (error) {
     logger.error('Create booking error', { error });

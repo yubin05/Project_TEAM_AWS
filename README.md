@@ -32,6 +32,8 @@
 | review-service → booking-service | HTTP `x-internal-secret` | 리뷰 작성 시 예약 확인 |
 | review-service → ElasticMQ | SQS Publish | 리뷰 생성/삭제 시 평점 갱신 요청 |
 | hotel-service ← ElasticMQ | SQS Consume | 메시지 수신 후 review-service에서 평점 집계 후 DB 업데이트 |
+| booking-service → ElasticMQ | SQS Publish | 예약 확정 시 이메일 알림 요청 |
+| Lambda ← SQS booking-queue | SQS Trigger | 메시지 수신 후 AWS SES로 예약 확정 이메일 발송 |
 
 ---
 
@@ -676,6 +678,157 @@ curl http://localhost:3003/health
 
 ---
 
+## 5. review-service EC2 분리 배포
+
+> **역할**: 리뷰 작성/삭제 + booking-service에 예약 확인 → SQS로 평점 갱신 이벤트 발행
+> **포트**: 3004 | **DB**: review_db (MySQL)
+> **SQS**: 리뷰 생성/삭제 시 `rating-queue`에 메시지 발행 (hotel-service가 수신하여 평점 집계)
+
+### 5-1. EC2 인스턴스 생성 (review-service)
+
+| 항목 | 권장 값 |
+|------|--------|
+| AMI | Amazon Linux 2023 |
+| 인스턴스 타입 | `t3.micro` |
+| 스토리지 | 기본 8GB |
+| 보안 그룹 인바운드 | SSH 22 (내 IP), TCP 3004 (Frontend EC2 SG + booking EC2 SG) |
+| 키 페어 | 기존 또는 새로 생성 |
+
+> booking-service가 review EC2 SG에 3003 포트를 열어뒀는지 확인 (booking → review 방향은 없음, review → booking 방향만 있음)
+
+### 5-2. EC2 접속 후 환경 세팅
+
+```bash
+# Amazon Linux 2023 — Docker 설치
+sudo dnf install -y docker git
+sudo systemctl enable --now docker
+
+# Docker Compose 플러그인 설치
+sudo mkdir -p /usr/local/lib/docker/cli-plugins
+sudo curl -SL https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-compose
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+
+# Docker BuildX 업데이트 (0.17.0 미만이면 compose build 오류 발생)
+sudo curl -SL https://github.com/docker/buildx/releases/download/v0.19.3/buildx-v0.19.3.linux-amd64 \
+  -o /usr/local/lib/docker/cli-plugins/docker-buildx
+sudo chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
+```
+
+### 5-3. 프로젝트 클론 및 실행
+
+```bash
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
+```
+
+**A. RDS 없이 로컬 MySQL + ElasticMQ로 테스트 (간단)**
+
+```bash
+cat > docker-compose.review.yml << 'EOF'
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: localpassword
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
+    volumes:
+      - ./scripts/init-databases.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost', '-uroot', '-plocalpassword']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    volumes:
+      - ./elasticmq/elasticmq.conf:/opt/elasticmq.conf:ro
+    ports:
+      - '9324:9324'
+
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    env_file: ./services/review-service/.env.local
+    ports:
+      - '3004:3004'
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: on-failure
+EOF
+
+# booking-service EC2 Private IP로 수정 (Docker DNS → 실제 IP)
+sed -i 's|BOOKING_SERVICE_URL=.*|BOOKING_SERVICE_URL=http://<booking EC2 Private IP>:3003|' services/review-service/.env.local
+
+# hotel-service EC2 Private IP로 수정 (SQS 발행 후 hotel-service에서 수신하므로 직접 호출 없음, 확인용)
+sed -i 's|HOTEL_SERVICE_URL=.*|HOTEL_SERVICE_URL=http://<hotel EC2 Private IP>:3002|' services/review-service/.env.local
+```
+
+> - review-service는 리뷰 작성 시 booking-service에 예약 확인 요청 (`BOOKING_SERVICE_URL` 필수)
+> - SQS 메시지를 hotel-service가 수신하여 평점 집계 → hotel-service EC2와 ElasticMQ가 연결되어야 함
+> - 로컬 테스트 시 ElasticMQ 컨테이너를 review EC2에서 직접 실행해도 되나, hotel-service EC2의 ElasticMQ를 바라보게 하려면 `.env.local`의 `SQS_ENDPOINT`와 `SQS_QUEUE_URL`을 hotel EC2 Private IP로 변경해야 함
+
+**B. RDS + AWS SQS 연동 (EC2 배포)**
+
+`.env.aws` 작성:
+
+```bash
+cat > services/review-service/.env.aws << 'EOF'
+APP_MODE=local
+PORT=3004
+DB_HOST=<RDS endpoint>
+DB_PORT=3306
+DB_USER=admin
+DB_PASSWORD=<비밀번호>
+DB_NAME=review_db
+JWT_SECRET=<auth-service와 동일한 값>
+INTERNAL_SECRET=<다른 서비스들과 동일한 값>
+BOOKING_SERVICE_URL=http://<booking EC2 Private IP>:3003
+HOTEL_SERVICE_URL=http://<hotel EC2 Private IP>:3002
+SQS_QUEUE_URL=https://sqs.ap-northeast-2.amazonaws.com/<Account ID>/rating-queue
+AWS_REGION=ap-northeast-2
+CORS_ORIGIN=http://<Frontend EC2 Public IP>
+EOF
+```
+
+compose 파일:
+
+```bash
+cat > docker-compose.review.yml << 'EOF'
+services:
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    env_file: ./services/review-service/.env.aws
+    ports:
+      - '3004:3004'
+    restart: on-failure
+EOF
+```
+
+실행:
+
+```bash
+sudo docker compose -f docker-compose.review.yml up -d --build
+
+# 시드 데이터 입력 (최초 1회)
+sudo docker compose -f docker-compose.review.yml exec review-service npm run seed
+```
+
+### 헬스체크
+
+```bash
+curl http://localhost:3004/health
+```
+
+---
+
 ## 실행 모드
 
 각 서비스의 `APP_MODE` 환경변수로 전환합니다.
@@ -818,8 +971,10 @@ Project_TEAM_AWS/
 
 ### 추가 서비스별
 - **hotel-service**: Azure Translator (REST), AWS Bedrock (Claude 3 Haiku)
-- **hotel-service**: @aws-sdk/client-sqs (SQS Consumer)
-- **review-service**: @aws-sdk/client-sqs (SQS Publisher)
+- **hotel-service**: @aws-sdk/client-sqs (SQS Consumer — rating-queue)
+- **review-service**: @aws-sdk/client-sqs (SQS Publisher — rating-queue)
+- **booking-service**: @aws-sdk/client-sqs (SQS Publisher — booking-queue)
+- **Lambda** (booking-notification): @aws-sdk/client-ses (예약 확정 이메일 발송)
 
 ### 프론트엔드
 - Vanilla HTML5 / CSS3 / JavaScript (ES6+)
@@ -840,10 +995,29 @@ Project_TEAM_AWS/
 
 - **Cognito**: User Pool + `custom:role` 속성
 - **RDS**: MySQL 8.0, 4개 DB (auth_db / hotel_db / booking_db / review_db)
-- **SQS**: `rating-queue`
+- **SQS**: `rating-queue`, `booking-queue`
+- **SES**: 발신 이메일 인증 (Sandbox → Production 신청 필요)
+- **Lambda**: `booking-notification` 함수 (`lambda/booking-notification/index.mjs`)
+  - 트리거: SQS `booking-queue`
+  - IAM Role: `ses:SendEmail` + `sqs:ReceiveMessage` / `sqs:DeleteMessage` / `sqs:GetQueueAttributes`
+  - 환경변수: `FROM_EMAIL`, `AWS_REGION`
 - **Secrets Manager**: 서비스별 시크릿 (`travel-app/auth-service` 등)
 - **Bedrock**: Claude 3 Haiku 모델 액세스 활성화
 - **CloudWatch**: 서비스별 로그 그룹 (`/travel-app/auth-service` 등)
+
+### 이메일 알림 흐름
+
+```
+예약 생성 (POST /api/bookings)
+    → booking-service INSERT 성공
+        → SQS booking-queue 메시지 발행
+            → Lambda (booking-notification) SQS 트리거
+                → AWS SES 이메일 발송 → 사용자 이메일
+```
+
+> 로컬 테스트 시 ElasticMQ의 `booking-queue`까지만 확인 가능하며, 실제 이메일 발송은 AWS 배포 후 SES에서 동작합니다.
+
+**SES Sandbox 제한**: 인증된 이메일 주소로만 수신 가능. 실서비스 전 Production 액세스 신청 필요.
 
 ### EC2 배포
 

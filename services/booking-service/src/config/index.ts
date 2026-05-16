@@ -20,6 +20,11 @@ export const config = {
     secret:       process.env.INTERNAL_SECRET     || 'local-internal-secret',
     hotelService: process.env.HOTEL_SERVICE_URL   || 'http://hotel-service:3002',
   },
+  sqs: {
+    endpoint: process.env.SQS_ENDPOINT   || 'http://elasticmq:9324',
+    queueUrl: process.env.SQS_QUEUE_URL  || 'http://elasticmq:9324/000000000000/booking-queue',
+    region:   process.env.AWS_REGION     || 'ap-northeast-2',
+  },
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
   },
