@@ -5,7 +5,8 @@ let state = {
   token: null,
   currentHotel: null,
   currentRoom: null,
-  searchParams: {}
+  searchParams: {},
+  wishlistIds: new Set(),
 };
 
 // ===== Init =====
@@ -25,6 +26,7 @@ function loadAuth() {
     state.token = token;
     state.user = JSON.parse(user);
     updateAuthUI();
+    loadWishlistIds();
   }
 }
 
@@ -194,6 +196,7 @@ async function handleLogin(e) {
     localStorage.setItem('token', state.token);
     localStorage.setItem('user', JSON.stringify(state.user));
     updateAuthUI();
+    loadWishlistIds();
     closeAllModals();
     showToast('로그인 되었습니다!', 'success');
     e.target.reset();
@@ -289,7 +292,7 @@ function renderHotelCard(hotel) {
       <div class="hotel-card-img">
         <img src="${img}" alt="${hotel.name}" loading="lazy" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
         <span class="hotel-badge">${categoryMap[hotel.category] || hotel.category}</span>
-        <button class="hotel-wish-btn" data-hotel-id="${hotel.id}" onclick="event.stopPropagation(); toggleWishlist('${hotel.id}', this)">🤍</button>
+        <button class="hotel-wish-btn" data-hotel-id="${hotel.id}" onclick="event.stopPropagation(); toggleWishlist('${hotel.id}', this)">${state.wishlistIds.has(hotel.id) ? '❤️' : '🤍'}</button>
       </div>
       <div class="hotel-card-body">
         <div class="hotel-category">${hotel.city} · ${hotel.region}</div>
@@ -776,6 +779,14 @@ function initStarRating() {
 }
 
 // ===== Wishlist =====
+async function loadWishlistIds() {
+  if (!state.user) return;
+  try {
+    const res = await api('/wishlist');
+    state.wishlistIds = new Set(res.data.map(h => h.id));
+  } catch {}
+}
+
 async function loadWishlist() {
   if (!state.user) { openModal('modal-login'); return; }
   const container = document.getElementById('wishlist-list');
@@ -798,7 +809,10 @@ async function toggleWishlist(hotelId, btn) {
   if (!state.user) { showToast('로그인 후 이용해주세요.', 'info'); openModal('modal-login'); return; }
   try {
     const res = await api(`/wishlist/${hotelId}`, { method: 'POST' });
-    btn.textContent = res.data.wishlisted ? '❤️' : '🤍';
+    const wishlisted = res.data.wishlisted;
+    btn.textContent = wishlisted ? '❤️' : '🤍';
+    if (wishlisted) state.wishlistIds.add(hotelId);
+    else state.wishlistIds.delete(hotelId);
     showToast(res.message, 'success');
   } catch (err) {
     showToast(err.message, 'error');
