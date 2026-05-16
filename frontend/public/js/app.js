@@ -678,6 +678,8 @@ async function loadMyBookings() {
       const statusClass = `status-${b.status}`;
       const ci = new Date(b.check_in_date).toLocaleDateString('ko-KR');
       const co = new Date(b.check_out_date).toLocaleDateString('ko-KR');
+      const canCancel = b.status !== 'cancelled' && b.status !== 'completed';
+      const canReview = b.status === 'confirmed' || b.status === 'completed';
       return `
         <div class="booking-item">
           <div class="booking-item-img"><img src="${img}" alt="${b.hotel_name}" onerror="this.src='https://via.placeholder.com/200x150'"></div>
@@ -688,8 +690,8 @@ async function loadMyBookings() {
             <div>총 금액: <strong>${Math.floor(b.total_price).toLocaleString()}원</strong></div>
             <div class="booking-item-actions">
               <span class="booking-status ${statusClass}">${statusLabels[b.status] || b.status}</span>
-              ${b.status !== 'cancelled' && b.status !== 'completed' ? `<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem" onclick="cancelBooking('${b.id}')">예약 취소</button>` : ''}
-              ${(b.status === 'confirmed' || b.status === 'completed') ? `<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem;color:var(--primary);border-color:var(--primary)" onclick="openReviewModal('${b.id}','${b.hotel_id}','${b.hotel_name.replace(/'/g,"\\'")}')">리뷰 작성</button>` : ''}
+              ${canCancel ? '<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem" onclick="cancelBooking(\'' + b.id + '\')">예약 취소</button>' : ''}
+              ${canReview ? '<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem;color:var(--primary);border-color:var(--primary)" data-bid="' + b.id + '" data-hid="' + b.hotel_id + '" data-hname="' + b.hotel_name + '" onclick="openReviewModal(this.dataset.bid,this.dataset.hid,this.dataset.hname)">리뷰 작성</button>' : ''}
             </div>
           </div>
         </div>`;
