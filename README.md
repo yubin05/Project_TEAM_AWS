@@ -165,8 +165,7 @@ cd Project_TEAM_AWS
 git sparse-checkout set backend/auth-service
 ```
 
-MySQL 컨테이너 없이 서비스만 실행, MySQL EC2 Private IP 연결:
-
+MySQL 설정 파일 수정
 ```bash
 cat > backend/auth-service/.env.mysql-ec2 << 'EOF'
 APP_MODE=local
@@ -180,7 +179,10 @@ JWT_SECRET=<랜덤 문자열, 모든 서비스 동일>
 INTERNAL_SECRET=<랜덤 문자열, 모든 서비스 동일>
 CORS_ORIGIN=http://<Frontend EC2 Public IP>
 EOF
+```
 
+MySQL 컨테이너 없이 서비스만 실행
+```bash
 cat > docker-compose.auth.yml << 'EOF'
 services:
   auth-service:
@@ -251,6 +253,7 @@ cd Project_TEAM_AWS
 git sparse-checkout set backend/hotel-service elasticmq
 ```
 
+MySQL 설정 파일 수정
 ```bash
 cat > backend/hotel-service/.env.mysql-ec2 << 'EOF'
 APP_MODE=local
@@ -268,7 +271,10 @@ DYNAMODB_ENDPOINT=http://localhost:8000
 SQS_ENDPOINT=http://elasticmq:9324
 SQS_QUEUE_URL=http://elasticmq:9324/000000000000/rating-queue
 EOF
+```
 
+MySQL 컨테이너 없이 서비스만 실행 (ElasticMQ 포함)
+```bash
 cat > docker-compose.hotel.yml << 'EOF'
 services:
   elasticmq:
@@ -336,6 +342,7 @@ cd Project_TEAM_AWS
 git sparse-checkout set backend/booking-service
 ```
 
+MySQL 설정 파일 수정
 ```bash
 cat > backend/booking-service/.env.mysql-ec2 << 'EOF'
 APP_MODE=local
@@ -353,7 +360,10 @@ AWS_REGION=ap-northeast-2
 SQS_ENDPOINT=http://<hotel EC2 Private IP>:9324
 SQS_QUEUE_URL=http://<hotel EC2 Private IP>:9324/000000000000/booking-queue
 EOF
+```
 
+MySQL 컨테이너 없이 서비스만 실행
+```bash
 cat > docker-compose.booking.yml << 'EOF'
 services:
   booking-service:
@@ -422,6 +432,7 @@ cd Project_TEAM_AWS
 git sparse-checkout set backend/review-service
 ```
 
+MySQL 설정 파일 수정
 ```bash
 cat > backend/review-service/.env.mysql-ec2 << 'EOF'
 APP_MODE=local
@@ -440,7 +451,10 @@ SQS_QUEUE_URL=http://<hotel EC2 Private IP>:9324/000000000000/rating-queue
 CORS_ORIGIN=http://<Frontend EC2 Public IP>
 AWS_REGION=ap-northeast-2
 EOF
+```
 
+MySQL 컨테이너 없이 서비스만 실행
+```bash
 cat > docker-compose.review.yml << 'EOF'
 services:
   review-service:
