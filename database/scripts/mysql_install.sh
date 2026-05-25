@@ -29,6 +29,7 @@ chgrp ec2-user /var/log/mysqld.log
 
 TEMP_PW=$(grep 'temporary password' /var/log/mysqld.log | awk '{print $NF}')
 mysql --connect-expired-password -u root -p$TEMP_PW <<EOT
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'P@ssw0rd';
 CREATE USER 'root'@'%' IDENTIFIED BY 'P@ssw0rd';
 DELETE FROM mysql.user WHERE User='';
 DROP DATABASE IF EXISTS test;
