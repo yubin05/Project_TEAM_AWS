@@ -98,45 +98,30 @@ sudo systemctl restart nginx
 | 보안 그룹 인바운드 | SSH 22 (내 IP), TCP 3306 (auth/hotel/booking/review EC2 SG) |
 | 키 페어 | 기존 또는 새로 생성 |
 
-### MySQL-2. MySQL 8.0 설치 및 설정
+### MySQL-2. 레포지토리 클론 및 MySQL 8.0 설치
 
 ```bash
-# MySQL 8.0 설치
-sudo dnf install -y mysql-server
-sudo systemctl enable --now mysqld
+sudo dnf install -y git
 
-# root 비밀번호 설정 및 원격 접속 허용
-sudo mysql -u root << 'SQL'
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'P@ssw0rd';
-CREATE USER 'root'@'%' IDENTIFIED BY 'P@ssw0rd';
-GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
-FLUSH PRIVILEGES;
-SQL
-
-# 원격 접속을 위해 bind-address 변경
-sudo sed -i '/\[mysqld\]/a bind-address = 0.0.0.0' /etc/my.cnf
-sudo systemctl restart mysqld
-```
-
-### MySQL-3. DB 초기화 및 시드 데이터 삽입
-
-```bash
 git clone --filter=blob:none --sparse https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 git sparse-checkout set database
 
-# 4개 DB 생성
-mysql -u root -pP@ssw0rd < database/scripts/init-databases.sql
+# MySQL 8.0 설치 및 설정 (GPG 키 등록 → 설치 → my.cnf 설정 → root 비밀번호 변경)
+sudo bash database/scripts/mysql_install.sh
+```
 
-# node.js 설치 (bcrypt 해시 생성용)
-sudo dnf install -y nodejs
+설치 후 적용 내용:
+- MySQL 8.0 Community Server 설치 (공식 RPM 저장소)
+- `/etc/my.cnf`: utf8mb4, `default_authentication_plugin=mysql_native_password`
+- root 비밀번호: `P@ssw0rd`, 외부 접속 허용 (`root@'%'`)
+- `user1@'%'` 계정 생성 (ALL PRIVILEGES)
 
-# auth-service 의존성 설치 (bcryptjs 사용)
-npm install --prefix backend/auth-service
+### MySQL-3. DB 초기화 및 시드 데이터 삽입
 
-# 시드 데이터 삽입 (서비스 기동 후 테이블 생성 완료된 뒤 실행)
-# - 서비스 EC2들을 먼저 기동하여 테이블 생성 후 실행 권장
-bash database/scripts/run-seed.sh P@ssw0rd
+```bash
+# 4개 DB 및 테이블 생성 + 시드 데이터 삽입
+bash database/scripts/run-seed.sh
 ```
 
 > **보안 그룹 설정**: 각 서비스 EC2의 보안 그룹을 MySQL EC2 인바운드 규칙에 3306 포트로 추가해야 합니다.
