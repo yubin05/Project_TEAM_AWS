@@ -274,6 +274,67 @@ sudo cp -r frontend/public/* /usr/share/nginx/html/
 sudo systemctl restart nginx
 ```
 
+---
+
+## MySQL EC2 분리 배포
+
+> 각 서비스 EC2에 MySQL 컨테이너를 올리는 대신, **MySQL 전용 EC2 1대**를 두고 모든 서비스가 연결하는 구조입니다.
+> 서비스 EC2의 docker-compose에서 mysql 컨테이너를 제거하고 `DB_HOST`를 MySQL EC2 Private IP로 설정합니다.
+
+### MySQL-1. EC2 인스턴스 생성
+
+| 항목 | 권장 값 |
+|------|--------|
+| AMI | Amazon Linux 2023 |
+| 인스턴스 타입 | `t3.small` (4개 DB 동시 운용) |
+| 스토리지 | 20GB 이상 |
+| 보안 그룹 인바운드 | SSH 22 (내 IP), TCP 3306 (auth/hotel/booking/review EC2 SG) |
+| 키 페어 | 기존 또는 새로 생성 |
+
+### MySQL-2. MySQL 8.0 설치 및 설정
+
+```bash
+# MySQL 8.0 설치
+sudo dnf install -y mysql-server
+sudo systemctl enable --now mysqld
+
+# root 비밀번호 설정 및 원격 접속 허용
+sudo mysql -u root << 'SQL'
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'P@ssw0rd';
+CREATE USER 'root'@'%' IDENTIFIED BY 'P@ssw0rd';
+GRANT ALL PRIVILEGES ON *.* TO 'root'@'%' WITH GRANT OPTION;
+FLUSH PRIVILEGES;
+SQL
+
+# 원격 접속을 위해 bind-address 변경
+sudo sed -i '/\[mysqld\]/a bind-address = 0.0.0.0' /etc/my.cnf
+sudo systemctl restart mysqld
+```
+
+### MySQL-3. DB 초기화 및 시드 데이터 삽입
+
+```bash
+git clone https://github.com/yubin05/Project_TEAM_AWS.git
+cd Project_TEAM_AWS
+
+# 4개 DB 생성
+mysql -u root -pP@ssw0rd < scripts/init-databases.sql
+
+# node.js 설치 (bcrypt 해시 생성용)
+sudo dnf install -y nodejs
+
+# auth-service 의존성 설치 (bcryptjs 사용)
+npm install --prefix services/auth-service
+
+# 시드 데이터 삽입 (서비스 기동 후 테이블 생성 완료된 뒤 실행)
+# - 서비스 EC2들을 먼저 기동하여 테이블 생성 후 실행 권장
+bash scripts/run-seed.sh P@ssw0rd
+```
+
+> **보안 그룹 설정**: 각 서비스 EC2의 보안 그룹을 MySQL EC2 인바운드 규칙에 3306 포트로 추가해야 합니다.
+
+---
+
 ### 2-1. EC2 인스턴스 생성 (auth-service)
 
 | 항목 | 권장 값 |
@@ -310,7 +371,7 @@ git clone https://github.com/yubin05/Project_TEAM_AWS.git
 cd Project_TEAM_AWS
 ```
 
-**A. RDS 없이 로컬 MySQL로 테스트 (간단)**
+**A. 로컬 MySQL 컨테이너 포함 (단일 EC2 테스트용)**
 
 `.env.local` 그대로 사용, MySQL 컨테이너 함께 실행:
 
@@ -346,7 +407,7 @@ services:
 EOF
 ```
 
-**B. RDS 연동 (EC2 배포)**
+**B. RDS 연동 (AWS 배포)**
 
 `.env.aws` 작성:
 
@@ -386,9 +447,39 @@ EOF
 
 ```bash
 sudo docker compose -f docker-compose.auth.yml up -d --build
+```
 
-# 시드 데이터 입력 (최초 1회) - DB 연동하지 않았을 경우, 테스트를 위한 데이터
-sudo docker compose -f docker-compose.auth.yml exec auth-service npm run seed
+**C. MySQL EC2 연결 (MySQL 전용 EC2 분리 구조)**
+
+MySQL 컨테이너 없이 서비스만 실행, MySQL EC2 Private IP 연결:
+
+```bash
+cat > services/auth-service/.env.mysql-ec2 << 'EOF'
+APP_MODE=local
+PORT=3001
+DB_HOST=<MySQL EC2 Private IP>
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=P@ssw0rd
+DB_NAME=auth_db
+JWT_SECRET=<랜덤 문자열, 모든 서비스 동일>
+INTERNAL_SECRET=<랜덤 문자열, 모든 서비스 동일>
+CORS_ORIGIN=http://<Frontend EC2 Public IP>
+EOF
+
+cat > docker-compose.auth.yml << 'EOF'
+services:
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: Dockerfile
+    env_file: ./services/auth-service/.env.mysql-ec2
+    ports:
+      - '3001:3001'
+    restart: on-failure
+EOF
+
+sudo docker compose -f docker-compose.auth.yml up -d --build
 ```
 
 ### 헬스체크
@@ -536,9 +627,48 @@ EOF
 
 ```bash
 sudo docker compose -f docker-compose.hotel.yml up -d --build
+```
 
-# 시드 데이터 입력 (최초 1회) - DB 연동하지 않았을 경우, 테스트를 위한 데이터
-sudo docker compose -f docker-compose.hotel.yml exec hotel-service npm run seed
+**C. MySQL EC2 연결 (MySQL 전용 EC2 분리 구조)**
+
+```bash
+cat > services/hotel-service/.env.mysql-ec2 << 'EOF'
+APP_MODE=local
+PORT=3002
+DB_HOST=<MySQL EC2 Private IP>
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=P@ssw0rd
+DB_NAME=hotel_db
+JWT_SECRET=<auth-service와 동일한 값>
+INTERNAL_SECRET=<모든 서비스 동일한 값>
+CORS_ORIGIN=http://<Frontend EC2 Public IP>
+AWS_REGION=ap-northeast-2
+DYNAMODB_ENDPOINT=http://localhost:8000
+SQS_ENDPOINT=http://elasticmq:9324
+SQS_QUEUE_URL=http://elasticmq:9324/000000000000/rating-queue
+EOF
+
+cat > docker-compose.hotel.yml << 'EOF'
+services:
+  elasticmq:
+    image: softwaremill/elasticmq-native:latest
+    volumes:
+      - ./elasticmq/elasticmq.conf:/opt/elasticmq.conf:ro
+
+  hotel-service:
+    build:
+      context: ./services/hotel-service
+      dockerfile: Dockerfile
+    env_file: ./services/hotel-service/.env.mysql-ec2
+    ports:
+      - '3002:3002'
+    depends_on:
+      - elasticmq
+    restart: on-failure
+EOF
+
+sudo docker compose -f docker-compose.hotel.yml up -d --build
 ```
 
 ### 헬스체크
@@ -665,9 +795,41 @@ EOF
 
 ```bash
 sudo docker compose -f docker-compose.booking.yml up -d --build
+```
 
-# 시드 데이터 입력 (최초 1회)
-sudo docker compose -f docker-compose.booking.yml exec booking-service npm run seed
+**C. MySQL EC2 연결 (MySQL 전용 EC2 분리 구조)**
+
+```bash
+cat > services/booking-service/.env.mysql-ec2 << 'EOF'
+APP_MODE=local
+PORT=3003
+DB_HOST=<MySQL EC2 Private IP>
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=P@ssw0rd
+DB_NAME=booking_db
+JWT_SECRET=<auth-service와 동일한 값>
+INTERNAL_SECRET=<모든 서비스 동일한 값>
+HOTEL_SERVICE_URL=http://<hotel EC2 Private IP>:3002
+CORS_ORIGIN=http://<Frontend EC2 Public IP>
+AWS_REGION=ap-northeast-2
+SQS_ENDPOINT=http://<hotel EC2 Private IP>:9324
+SQS_QUEUE_URL=http://<hotel EC2 Private IP>:9324/000000000000/booking-queue
+EOF
+
+cat > docker-compose.booking.yml << 'EOF'
+services:
+  booking-service:
+    build:
+      context: ./services/booking-service
+      dockerfile: Dockerfile
+    env_file: ./services/booking-service/.env.mysql-ec2
+    ports:
+      - '3003:3003'
+    restart: on-failure
+EOF
+
+sudo docker compose -f docker-compose.booking.yml up -d --build
 ```
 
 ### 헬스체크
@@ -816,9 +978,42 @@ EOF
 
 ```bash
 sudo docker compose -f docker-compose.review.yml up -d --build
+```
 
-# 시드 데이터 입력 (최초 1회)
-sudo docker compose -f docker-compose.review.yml exec review-service npm run seed
+**C. MySQL EC2 연결 (MySQL 전용 EC2 분리 구조)**
+
+```bash
+cat > services/review-service/.env.mysql-ec2 << 'EOF'
+APP_MODE=local
+PORT=3004
+DB_HOST=<MySQL EC2 Private IP>
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=P@ssw0rd
+DB_NAME=review_db
+JWT_SECRET=<auth-service와 동일한 값>
+INTERNAL_SECRET=<모든 서비스 동일한 값>
+BOOKING_SERVICE_URL=http://<booking EC2 Private IP>:3003
+HOTEL_SERVICE_URL=http://<hotel EC2 Private IP>:3002
+SQS_ENDPOINT=http://<hotel EC2 Private IP>:9324
+SQS_QUEUE_URL=http://<hotel EC2 Private IP>:9324/000000000000/rating-queue
+CORS_ORIGIN=http://<Frontend EC2 Public IP>
+AWS_REGION=ap-northeast-2
+EOF
+
+cat > docker-compose.review.yml << 'EOF'
+services:
+  review-service:
+    build:
+      context: ./services/review-service
+      dockerfile: Dockerfile
+    env_file: ./services/review-service/.env.mysql-ec2
+    ports:
+      - '3004:3004'
+    restart: on-failure
+EOF
+
+sudo docker compose -f docker-compose.review.yml up -d --build
 ```
 
 ### 헬스체크
