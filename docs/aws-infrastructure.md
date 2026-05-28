@@ -1,6 +1,8 @@
 # AWS 인프라 구성
 
-## 전체 아키텍처
+## 공통 아키텍처 (ECS / EKS 공통)
+
+> 컨테이너 오케스트레이션 레이어만 다르고 나머지 AWS 서비스는 동일합니다.
 
 ```
 사용자
@@ -16,13 +18,9 @@
    ├── /bookings/*   → booking-service
    └── /reviews/*    → review-service
         ↓ (VPC Link)
-       ALB (internal, Application Load Balancer)
+       ALB (internal)
         ↓
-   ECS Fargate
-   ├── auth-service    :3001  ── Cognito 토큰 검증
-   ├── hotel-service   :3002  ── Bedrock / SQS Consumer ←─ SQS rating-queue
-   ├── booking-service :3003  ── SQS Publisher ──────────→ SQS booking-queue
-   └── review-service  :3004  ── SQS Publisher ──────────→ SQS rating-queue
+   [ ECS Fargate  또는  EKS ]  ← 이 부분만 다름
         ↓
    RDS MySQL (서비스별 독립 DB)
    DynamoDB (캐시)
@@ -36,20 +34,173 @@
 
 ---
 
-## AWS 서비스별 역할
+## Option A — ECS Fargate
+
+> AWS 네이티브 방식. 설정 간단, 운영 오버헤드 낮음.
+
+### 아키텍처
+
+```
+ALB (internal)
+      ↓ Target Group (서비스별)
+ECS Fargate
+├── auth-service    :3001
+├── hotel-service   :3002
+├── booking-service :3003
+└── review-service  :3004
+```
+
+### 구성 요소
+
+| 항목 | ECS 방식 |
+|---|---|
+| 컨테이너 정의 | Task Definition (JSON) |
+| 실행 단위 | Task |
+| 서비스 관리 | ECS Service |
+| ALB 연동 | Target Group 자동 등록 |
+| 배포 | CodeDeploy (Blue/Green or Rolling) |
+| 스케일링 | ECS Auto Scaling |
+| IAM 권한 | Task Role |
+
+### CI/CD (CodePipeline)
+
+```
+GitHub push (backend/**)
+    → CodePipeline 감지
+    → CodeBuild: docker build → ECR push
+    → CodeDeploy: Task Definition 업데이트 → ECS Service 재배포
+```
+
+**경로 필터 설정** (CodePipeline V2):
+```yaml
+Triggers:
+  - ProviderType: CodeStarSourceConnection
+    GitConfiguration:
+      Push:
+        - FilePaths:
+            Includes:
+              - backend/**
+            Excludes:
+              - frontend/**
+              - docs/**
+              - "*.md"
+```
+
+> **주의**: 경로 필터는 CodePipeline **V2** 에서만 지원됩니다.
+
+### 보안 구성
+
+```
+인터넷
+  └── WAF
+        └── API Gateway (Cognito JWT 검증)
+              └── VPC Link
+                    └── ALB internal (VPC Link에서만 인바운드)
+                          └── ECS (ALB에서만 인바운드)
+                                └── RDS (ECS에서만 3306)
+```
+
+---
+
+## Option B — EKS
+
+> Kubernetes 방식. 운영 오버헤드 높지만 K8s 생태계 활용 가능.
+
+### 아키텍처
+
+```
+ALB (internal)  ← AWS Load Balancer Controller가 관리
+      ↓ Ingress 규칙
+EKS Cluster
+└── Namespace: travel-app
+    ├── Deployment: auth-service    (Pod × N)
+    ├── Deployment: hotel-service   (Pod × N)
+    ├── Deployment: booking-service (Pod × N)
+    └── Deployment: review-service  (Pod × N)
+```
+
+### 구성 요소
+
+| 항목 | EKS 방식 |
+|---|---|
+| 컨테이너 정의 | deployment.yaml |
+| 실행 단위 | Pod |
+| 서비스 관리 | K8s Service |
+| ALB 연동 | AWS Load Balancer Controller + Ingress |
+| 배포 | kubectl apply / Helm / ArgoCD |
+| 스케일링 | HPA (Horizontal Pod Autoscaler) |
+| IAM 권한 | IRSA (IAM Roles for Service Accounts) |
+
+### K8s 매니페스트 구조
+
+```
+k8s/
+├── namespace.yaml
+├── auth-service/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── hotel-service/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── booking-service/
+│   ├── deployment.yaml
+│   └── service.yaml
+├── review-service/
+│   ├── deployment.yaml
+│   └── service.yaml
+└── ingress.yaml          ← ALB Ingress (경로 라우팅)
+```
+
+### CI/CD (CodePipeline + kubectl)
+
+```
+GitHub push (backend/**)
+    → CodePipeline 감지
+    → CodeBuild: docker build → ECR push → kubectl apply
+    → EKS: 새 이미지로 Rolling Update
+```
+
+### 보안 구성
+
+```
+인터넷
+  └── WAF
+        └── API Gateway (Cognito JWT 검증)
+              └── VPC Link
+                    └── ALB internal (AWS LB Controller 관리)
+                          └── EKS Pod (ALB에서만 인바운드)
+                                └── RDS (EKS Node SG에서만 3306)
+```
+
+---
+
+## ECS vs EKS 비교
+
+| 항목 | ECS Fargate | EKS |
+|---|---|---|
+| 설정 난이도 | 낮음 | 높음 |
+| 운영 오버헤드 | 낮음 | 높음 |
+| AWS 네이티브 | ✅ | 부분적 |
+| K8s 이식성 | ❌ | ✅ |
+| 클러스터 비용 | 없음 | $0.10/시간 추가 |
+| 배포 방식 | CodeDeploy | kubectl / Helm / ArgoCD |
+| 스케일링 | ECS Auto Scaling | HPA |
+| 학습 목적 | AWS 집중 | K8s 생태계 |
+| **권장 상황** | 빠른 배포, 운영 단순화 | K8s 경험, 멀티클라우드 고려 |
+
+---
+
+## 공통 AWS 서비스 역할
 
 | 서비스 | 역할 |
 |---|---|
 | **Amplify** | 프론트엔드 정적 파일 호스팅 + GitHub 자동 배포 |
-| **WAF** | SQL Injection, XSS 차단 / Rate Limiting (API Gateway에 연결) |
-| **API Gateway** | REST/HTTP API 엔드포인트 + Cognito JWT Authorizer + VPC Link |
-| **ALB** | VPC 내부 트래픽 로드밸런싱 + ECS 서비스 경로 라우팅 (internal) |
-| **ECS Fargate** | 4개 마이크로서비스 컨테이너 실행 |
+| **WAF** | SQL Injection, XSS 차단 / Rate Limiting |
+| **API Gateway** | HTTP API 엔드포인트 + Cognito JWT Authorizer + VPC Link |
+| **ALB** | VPC 내부 트래픽 로드밸런싱 (internal) |
 | **ECR** | 서비스별 Docker 이미지 저장소 |
-| **Lambda** | SQS 트리거 이메일 발송 / Cognito 후처리 / S3 이미지 리사이즈 |
 | **CodePipeline** | 백엔드 CI/CD 자동화 파이프라인 |
 | **CodeBuild** | Docker 이미지 빌드 + ECR push |
-| **CodeDeploy** | ECS 서비스 자동 재배포 |
 | **Cognito** | 회원가입/로그인 + JWT 토큰 발급 |
 | **RDS MySQL** | 서비스별 독립 DB (auth/hotel/booking/review) |
 | **DynamoDB** | 호텔 검색 캐시 |
@@ -57,6 +208,7 @@
 | **SES** | 예약 확정 이메일 발송 (Lambda 통해 호출) |
 | **S3** | 호텔 이미지 / 소개 영상 / 로그 장기 보관 |
 | **Bedrock** | Claude 3 Haiku 기반 AI 숙소 추천 |
+| **Lambda** | SQS 트리거 이메일 / Cognito 후처리 / S3 이미지 리사이즈 |
 | **Secrets Manager** | DB 비밀번호, JWT 시크릿 등 민감 정보 관리 |
 | **CloudWatch** | 서비스별 실시간 로그 수집 및 알람 |
 | **Athena** | S3 로그 SQL 분석 |
@@ -65,62 +217,9 @@
 
 ---
 
-## CI/CD 흐름
+## CI/CD 트리거 분리 (공통)
 
-> 모노레포(단일 GitHub 저장소) 구조이므로 **경로 필터**를 설정하여 불필요한 빌드를 방지합니다.
-
-### 프론트엔드 (Amplify)
-
-```
-GitHub push (main) — frontend/** 변경 시만 트리거
-    → Amplify 자동 감지 (appRoot: frontend)
-    → 빌드 (API_URL, AZURE_MAPS_KEY 환경변수 주입)
-    → CDN 배포
-```
-
-**경로 필터 설정** (`amplify.yml`):
-```yaml
-version: 1
-applications:
-  - appRoot: frontend        # frontend/ 하위 변경 시만 빌드
-    frontend:
-      phases:
-        build:
-          commands:
-            - echo "frontend build"
-      artifacts:
-        baseDirectory: public
-        files:
-          - '**/*'
-```
-
-### 백엔드 (CodePipeline v2)
-
-```
-GitHub push (main) — backend/** 변경 시만 트리거
-    → CodePipeline 감지 (filePaths 필터)
-    → CodeBuild: docker build → ECR push
-    → CodeDeploy: ECS Task Definition 업데이트 → 서비스 재배포
-```
-
-**경로 필터 설정** (CodePipeline v2, CloudFormation):
-```yaml
-Triggers:
-  - ProviderType: CodeStarSourceConnection
-    GitConfiguration:
-      Push:
-        - FilePaths:
-            Includes:
-              - backend/**   # backend/ 하위 변경 시만 트리거
-            Excludes:
-              - frontend/**
-              - docs/**
-              - "*.md"
-```
-
-> **주의**: 경로 필터는 CodePipeline **V2** 에서만 지원됩니다. (`PipelineType: V2`)
-
-### 트리거 분리 요약
+> 모노레포 구조이므로 경로 필터로 불필요한 빌드 방지
 
 | push 경로 | Amplify | CodePipeline |
 |---|---|---|
@@ -131,8 +230,6 @@ Triggers:
 ---
 
 ## Lambda 구성
-
-### 부착 위치 및 역할
 
 | 트리거 | Lambda 역할 | 연결 서비스 |
 |---|---|---|
@@ -147,9 +244,8 @@ Triggers:
 ```
 booking-service
     → SQS (booking-queue) 메시지 발행
-        → Lambda 트리거 (자동)
-            → 메시지 파싱 (예약자 이메일, 호텔명, 날짜)
-                → SES 이메일 발송
+        → Lambda 트리거
+            → SES 이메일 발송
 ```
 
 #### 2. 이미지 리사이즈 (S3 → Lambda → S3)
@@ -168,7 +264,6 @@ hotel-service
 사용자 회원가입 → Cognito 처리
     → Post Confirmation 트리거 → Lambda
         → auth_db.users 테이블에 초기 레코드 INSERT
-            (APP_MODE=aws 전환 시 필요)
 ```
 
 ---
@@ -186,56 +281,23 @@ hotel-service
 | `ANY /bookings/{proxy+}` | booking-service | ✅ |
 | `ANY /reviews/{proxy+}` | review-service | ✅ |
 
-### VPC Link 연결 구조
-
-```
-API Gateway (HTTP API)
-      ↓ VPC Link (프라이빗 서브넷 연결)
-  ALB (internal)  ← Security Group: API Gateway VPC Link에서만 인바운드
-      ↓ 경로 기반 라우팅
-  ECS 서비스 (Target Group 별)
-```
-
-- **VPC Link**: API Gateway가 프라이빗 VPC 내 ALB에 접근하기 위한 터널
-- **ALB Listener Rules**: 경로별로 각 ECS Target Group으로 포워딩
-- **Cognito JWT Authorizer**: 토큰 검증을 API Gateway 레벨에서 처리 → ECS 부하 감소
-
 ### API Gateway vs ALB 역할 분담
 
 | 역할 | API Gateway | ALB |
 |---|---|---|
 | 외부 엔드포인트 | ✅ (퍼블릭) | ❌ (internal 전용) |
 | Cognito 인증 | ✅ JWT Authorizer | ❌ |
-| Rate Limiting | ✅ Usage Plan / Throttling | ❌ |
-| WAF 연결 | ✅ | ❌ (API GW에 붙임) |
+| Rate Limiting | ✅ | ❌ |
+| WAF 연결 | ✅ | ❌ |
 | 경로 라우팅 | ✅ (서비스 단위) | ✅ (세부 경로) |
 | 헬스체크 | ❌ | ✅ |
-
----
-
-## 보안 구성
-
-```
-인터넷
-  └── WAF (악성 요청 차단)
-        └── API Gateway (HTTPS, Cognito JWT 검증)
-              └── VPC Link
-                    └── ALB internal (Security Group: VPC Link에서만 인바운드)
-                          └── ECS (Security Group: ALB에서만 인바운드 허용)
-                                └── RDS (Security Group: ECS에서만 3306 허용)
-```
-
-- 모든 시크릿은 **Secrets Manager** 관리, 코드에 하드코딩 없음
-- ECS Task Role: 필요한 서비스만 최소 권한 부여 (IAM)
-- Cognito: `APP_MODE=aws` 전환 시 자체 JWT → Cognito 토큰 자동 전환
-- API Gateway에 WAF를 연결하여 ALB는 외부에 노출하지 않음
 
 ---
 
 ## 로그 분석 파이프라인 (CloudWatch → S3 → Athena)
 
 ```
-ECS 서비스 로그
+컨테이너 로그 (ECS or EKS)
       ↓
   CloudWatch Logs (실시간 수집 / 알람)
       ↓ (Export)
@@ -243,8 +305,6 @@ ECS 서비스 로그
       ↓
    Athena (SQL로 로그 분석)
 ```
-
-### 활용 예시
 
 ```sql
 -- 서비스별 에러 집계
@@ -259,12 +319,6 @@ FROM logs
 WHERE timestamp BETWEEN '2024-01-01' AND '2024-01-02'
 GROUP BY endpoint;
 ```
-
-| 서비스 | 역할 |
-|---|---|
-| CloudWatch Logs | 실시간 로그 수집 + 임계값 알람 |
-| S3 | 저비용 로그 장기 보관 |
-| Athena | 서버리스 SQL 분석, 별도 DB 불필요 |
 
 ---
 
@@ -283,8 +337,6 @@ MySQL EC2 (Source)
       ↓
   서비스 DB_HOST → RDS 엔드포인트로 전환
 ```
-
-### 이전 전/후 비교
 
 | 항목 | MySQL EC2 | RDS |
 |---|---|---|
