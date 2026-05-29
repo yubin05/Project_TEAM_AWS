@@ -19,5 +19,3 @@ applications:
           - '**/*'
       cache:
         paths: []
-watchPaths:
-  - frontend/**

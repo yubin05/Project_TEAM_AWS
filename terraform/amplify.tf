@@ -9,10 +9,7 @@ resource "aws_amplify_app" "frontend" {
   # build_spec 미지정 시 Amplify가 레포에서 amplify.yml을 직접 읽음
 
   environment_variables = {
-    API_URL                   = "http://${aws_eip.frontend.public_ip}"
-    AMPLIFY_MONOREPO_APP_ROOT = "frontend"
-    AMPLIFY_DIFF_DEPLOY       = "true"
-    AMPLIFY_DIFF_DEPLOY_ROOT  = "frontend"
+    API_URL = "http://${aws_eip.frontend.public_ip}"
   }
 
   # frontend/ 외 경로 변경 시 빌드 스킵 (CodePipeline과 역할 분리)
@@ -29,8 +26,4 @@ resource "aws_amplify_branch" "main" {
   branch_name = "main"
 
   enable_auto_build = true
-
-  environment_variables = {
-    API_URL = "http://${aws_eip.frontend.public_ip}"
-  }
 }
