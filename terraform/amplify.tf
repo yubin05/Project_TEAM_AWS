@@ -12,6 +12,7 @@ resource "aws_amplify_app" "frontend" {
     API_URL                   = "http://${aws_eip.frontend.public_ip}"
     AMPLIFY_MONOREPO_APP_ROOT = "frontend"
     AMPLIFY_DIFF_DEPLOY       = "true"
+    AMPLIFY_DIFF_DEPLOY_ROOT  = "frontend"
   }
 
   # frontend/ 외 경로 변경 시 빌드 스킵 (CodePipeline과 역할 분리)
