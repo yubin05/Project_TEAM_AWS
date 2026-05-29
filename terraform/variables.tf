@@ -22,3 +22,9 @@ variable "internal_secret" {
   sensitive   = true
   default     = "change-me-internal-secret"
 }
+
+variable "github_token" {
+  description = "GitHub Personal Access Token (repo 권한 필요) — Amplify 소스 연결용"
+  type        = string
+  sensitive   = true
+}
