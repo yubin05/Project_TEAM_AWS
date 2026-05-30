@@ -8,8 +8,8 @@ applications:
             # Amplify 환경변수 API_URL로 백엔드 주소 주입
             # Amplify 콘솔 → 환경변수에서 API_URL 설정 필요
             # 예) API_URL = https://xxxxxxxxxx.execute-api.ap-northeast-2.amazonaws.com
-            - |
-              echo "window.__API_BASE__ = '${API_URL}/api';" > public/js/config.js
+            - echo "const API_BASE = '${API_URL}/api';" > public/js/config.js
+            - echo "const AZURE_MAPS_KEY = window.__AZURE_MAPS_KEY__ || '';" >> public/js/config.js
         build:
           commands:
             - echo "Static site - no build required"
