@@ -107,6 +107,19 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# /hotels/*/reviews 는 review-service로 라우팅 (priority 높게 설정 — /hotels/* 보다 먼저 매칭)
+resource "aws_lb_listener_rule" "hotel_reviews" {
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 5
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.review.arn
+  }
+  condition {
+    path_pattern { values = ["/hotels/*/reviews"] }
+  }
+}
+
 resource "aws_lb_listener_rule" "auth" {
   listener_arn = aws_lb_listener.http.arn
   priority     = 10

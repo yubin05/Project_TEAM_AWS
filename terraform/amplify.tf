@@ -5,8 +5,7 @@ resource "aws_amplify_app" "frontend" {
   repository   = replace(var.github_repo_url, ".git", "")
   access_token = var.github_token
 
-  # 레포 루트의 amplify.yml 자동 사용 (appRoot: frontend 포함)
-  # build_spec 미지정 시 Amplify가 레포에서 amplify.yml을 직접 읽음
+  build_spec = file("${path.module}/../frontend/amplify.yml")
 
   environment_variables = {
     API_URL = aws_apigatewayv2_api.main.api_endpoint
