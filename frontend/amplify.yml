@@ -1,0 +1,16 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - echo "const API_BASE = '${API_URL}';" > public/js/config.js
+        - echo "const AZURE_MAPS_KEY = window.__AZURE_MAPS_KEY__ || '';" >> public/js/config.js
+    build:
+      commands:
+        - echo "Static site - no build required"
+  artifacts:
+    baseDirectory: public
+    files:
+      - '**/*'
+  cache:
+    paths: []
