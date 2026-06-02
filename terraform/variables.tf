@@ -35,6 +35,12 @@ variable "github_repo_name" {
   default     = "Project_TEAM_AWS"
 }
 
+variable "amplify_force_deploy" {
+  description = "강제 배포 시 true (AMPLIFY_DIFF_DEPLOY 비활성화)"
+  type        = bool
+  default     = false
+}
+
 variable "db_password" {
   description = "RDS MySQL 관리자 비밀번호"
   type        = string

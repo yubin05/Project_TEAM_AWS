@@ -10,7 +10,7 @@ resource "aws_amplify_app" "frontend" {
   environment_variables = {
     API_URL                   = aws_apigatewayv2_api.main.api_endpoint
     AMPLIFY_MONOREPO_APP_ROOT = "frontend"
-    AMPLIFY_DIFF_DEPLOY       = "true"
+    AMPLIFY_DIFF_DEPLOY       = var.amplify_force_deploy ? "false" : "true"
     AMPLIFY_DIFF_DEPLOY_ROOT  = "frontend"
   }
 
@@ -28,4 +28,17 @@ resource "aws_amplify_branch" "main" {
   branch_name = "main"
 
   enable_auto_build = true
+}
+
+# ── 첫 배포 및 API URL 변경 시 자동 빌드 트리거 ──────────────────────────────
+resource "null_resource" "amplify_build_trigger" {
+  triggers = {
+    api_url = aws_apigatewayv2_api.main.api_endpoint
+  }
+
+  provisioner "local-exec" {
+    command = "aws amplify start-job --app-id ${aws_amplify_app.frontend.id} --branch-name main --job-type RELEASE --region ap-northeast-2 --profile yubin03"
+  }
+
+  depends_on = [aws_amplify_branch.main]
 }

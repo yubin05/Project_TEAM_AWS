@@ -13,9 +13,33 @@ resource "aws_security_group" "alb" {
   }
 
   ingress {
-    description = "HTTP Green listener"
-    from_port   = 8080
-    to_port     = 8080
+    description = "auth-service"
+    from_port   = 3001
+    to_port     = 3001
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "hotel-service"
+    from_port   = 3002
+    to_port     = 3002
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "booking-service"
+    from_port   = 3003
+    to_port     = 3003
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "review-service"
+    from_port   = 3004
+    to_port     = 3004
     protocol    = "tcp"
     cidr_blocks = ["10.1.0.0/16"]
   }
@@ -38,7 +62,7 @@ resource "aws_lb" "internal" {
   tags               = { Name = "ThreeTier-ALB-Internal" }
 }
 
-# ── Target Groups (Fargate awsvpc → target_type = ip) ────────────────────────
+# ── Target Groups (Blue) ──────────────────────────────────────────────────────
 resource "aws_lb_target_group" "auth" {
   name        = "ThreeTier-Auth-TG"
   port        = 3001
@@ -97,83 +121,6 @@ resource "aws_lb_target_group" "review" {
     interval            = 30
   }
   tags = { Name = "ThreeTier-Review-TG" }
-}
-
-# ── Listener + Path-based Routing ────────────────────────────────────────────
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.internal.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type = "fixed-response"
-    fixed_response {
-      content_type = "text/plain"
-      message_body = "Not Found"
-      status_code  = "404"
-    }
-  }
-}
-
-# /hotels/*/reviews 는 review-service로 라우팅 (priority 높게 설정 — /hotels/* 보다 먼저 매칭)
-resource "aws_lb_listener_rule" "hotel_reviews" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 5
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.review.arn
-  }
-  condition {
-    path_pattern { values = ["/hotels/*/reviews"] }
-  }
-}
-
-resource "aws_lb_listener_rule" "auth" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 10
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.auth.arn
-  }
-  condition {
-    path_pattern { values = ["/auth/*"] }
-  }
-}
-
-resource "aws_lb_listener_rule" "hotel" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 20
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.hotel.arn
-  }
-  condition {
-    path_pattern { values = ["/hotels/*"] }
-  }
-}
-
-resource "aws_lb_listener_rule" "booking" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 30
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.booking.arn
-  }
-  condition {
-    path_pattern { values = ["/bookings/*"] }
-  }
-}
-
-resource "aws_lb_listener_rule" "review" {
-  listener_arn = aws_lb_listener.http.arn
-  priority     = 40
-  action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.review.arn
-  }
-  condition {
-    path_pattern { values = ["/reviews/*"] }
-  }
 }
 
 # ── Green Target Groups (Blue/Green 배포용) ───────────────────────────────────
@@ -237,14 +184,72 @@ resource "aws_lb_target_group" "review_green" {
   tags = { Name = "ThreeTier-Review-TG-Green" }
 }
 
-# ── Test Listener (Green TG용 — Blue/Green 배포 시 CodeDeploy가 전환) ─────────
-resource "aws_lb_listener" "http_green" {
-  load_balancer_arn = aws_lb.internal.arn
-  port              = 8080
-  protocol          = "HTTP"
+# ── 서비스별 리스너 (CodeDeploy Blue/Green이 리스너 단위로 TG 전환) ────────────
+# lifecycle ignore_changes = [default_action] — CodeDeploy가 TG 전환 후 terraform이 덮어쓰지 않도록
 
+resource "aws_lb_listener" "auth" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 3001
+  protocol          = "HTTP"
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.auth_green.arn
+    target_group_arn = aws_lb_target_group.auth.arn
+  }
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+resource "aws_lb_listener" "hotel" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 3002
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.hotel.arn
+  }
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+resource "aws_lb_listener" "booking" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 3003
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.booking.arn
+  }
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+resource "aws_lb_listener" "review" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 3004
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.review.arn
+  }
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+# ── 포트 80 폴백 리스너 (미매칭 요청 404) ─────────────────────────────────────
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 80
+  protocol          = "HTTP"
+  default_action {
+    type = "fixed-response"
+    fixed_response {
+      content_type = "text/plain"
+      message_body = "Not Found"
+      status_code  = "404"
+    }
   }
 }
