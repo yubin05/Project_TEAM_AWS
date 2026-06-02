@@ -8,7 +8,10 @@ resource "aws_amplify_app" "frontend" {
   build_spec = file("${path.module}/../frontend/amplify.yml")
 
   environment_variables = {
-    API_URL = aws_apigatewayv2_api.main.api_endpoint
+    API_URL                   = aws_apigatewayv2_api.main.api_endpoint
+    AMPLIFY_MONOREPO_APP_ROOT = "frontend"
+    AMPLIFY_DIFF_DEPLOY       = "true"
+    AMPLIFY_DIFF_DEPLOY_ROOT  = "frontend"
   }
 
   # frontend/ 외 경로 변경 시 빌드 스킵 (CodePipeline과 역할 분리)
