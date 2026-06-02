@@ -3,12 +3,6 @@ variable "key_name" {
   type        = string
 }
 
-variable "github_repo_url" {
-  description = "GitHub 레포지토리 HTTPS URL"
-  type        = string
-  default     = "https://github.com/yubin05/Project_TEAM_AWS.git"
-}
-
 variable "jwt_secret" {
   description = "JWT 시크릿 (모든 서비스 공유)"
   type        = string
@@ -27,6 +21,18 @@ variable "github_token" {
   description = "GitHub Personal Access Token (repo 권한 필요) — Amplify 소스 연결용"
   type        = string
   sensitive   = true
+}
+
+variable "github_owner" {
+  description = "GitHub 계정 ID (owner)"
+  type        = string
+  default     = "yubin05"
+}
+
+variable "github_repo_name" {
+  description = "GitHub 저장소 이름"
+  type        = string
+  default     = "Project_TEAM_AWS"
 }
 
 variable "db_password" {

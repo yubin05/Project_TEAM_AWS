@@ -74,7 +74,7 @@ EOT
 source /etc/profile
 set -euxo pipefail
 dnf install -y git
-git clone --filter=blob:none --sparse ${var.github_repo_url} /opt/app
+git clone --filter=blob:none --sparse https://github.com/${var.github_owner}/${var.github_repo_name}.git /opt/app
 cd /opt/app
 git sparse-checkout set database
 sudo bash database/scripts/mysql_install.sh

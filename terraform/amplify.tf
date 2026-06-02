@@ -2,7 +2,7 @@
 # 프론트엔드 전용 — amplify.yml (appRoot: frontend) 기준으로 빌드
 resource "aws_amplify_app" "frontend" {
   name         = "ThreeTier-Frontend"
-  repository   = replace(var.github_repo_url, ".git", "")
+  repository   = "https://github.com/${var.github_owner}/${var.github_repo_name}"
   access_token = var.github_token
 
   build_spec = file("${path.module}/../frontend/amplify.yml")
