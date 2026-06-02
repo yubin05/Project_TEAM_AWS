@@ -12,6 +12,14 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["10.1.0.0/16"]
   }
 
+  ingress {
+    description = "HTTP Green listener"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -165,5 +173,78 @@ resource "aws_lb_listener_rule" "review" {
   }
   condition {
     path_pattern { values = ["/reviews/*"] }
+  }
+}
+
+# ── Green Target Groups (Blue/Green 배포용) ───────────────────────────────────
+resource "aws_lb_target_group" "auth_green" {
+  name        = "ThreeTier-Auth-TG-Green"
+  port        = 3001
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Auth-TG-Green" }
+}
+
+resource "aws_lb_target_group" "hotel_green" {
+  name        = "ThreeTier-Hotel-TG-Green"
+  port        = 3002
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Hotel-TG-Green" }
+}
+
+resource "aws_lb_target_group" "booking_green" {
+  name        = "ThreeTier-Booking-TG-Green"
+  port        = 3003
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Booking-TG-Green" }
+}
+
+resource "aws_lb_target_group" "review_green" {
+  name        = "ThreeTier-Review-TG-Green"
+  port        = 3004
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Review-TG-Green" }
+}
+
+# ── Test Listener (Green TG용 — Blue/Green 배포 시 CodeDeploy가 전환) ─────────
+resource "aws_lb_listener" "http_green" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 8080
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.auth_green.arn
   }
 }

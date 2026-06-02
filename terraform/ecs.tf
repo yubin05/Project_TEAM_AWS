@@ -279,6 +279,10 @@ resource "aws_ecs_service" "auth" {
   desired_count   = 2
   launch_type     = "FARGATE"
 
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
+
   network_configuration {
     subnets          = [aws_subnet.private_backend.id, aws_subnet.private_backend_2.id]
     security_groups  = [aws_security_group.ecs_tasks.id]
@@ -293,6 +297,10 @@ resource "aws_ecs_service" "auth" {
 
   wait_for_steady_state = false
   depends_on            = [aws_lb_listener.http]
+
+  lifecycle {
+    ignore_changes = [task_definition, load_balancer]
+  }
 }
 
 resource "aws_ecs_service" "hotel" {
@@ -301,6 +309,10 @@ resource "aws_ecs_service" "hotel" {
   task_definition = aws_ecs_task_definition.hotel.arn
   desired_count   = 2
   launch_type     = "FARGATE"
+
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
 
   network_configuration {
     subnets          = [aws_subnet.private_backend.id, aws_subnet.private_backend_2.id]
@@ -316,6 +328,10 @@ resource "aws_ecs_service" "hotel" {
 
   wait_for_steady_state = false
   depends_on            = [aws_lb_listener.http]
+
+  lifecycle {
+    ignore_changes = [task_definition, load_balancer]
+  }
 }
 
 resource "aws_ecs_service" "booking" {
@@ -324,6 +340,10 @@ resource "aws_ecs_service" "booking" {
   task_definition = aws_ecs_task_definition.booking.arn
   desired_count   = 2
   launch_type     = "FARGATE"
+
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
 
   network_configuration {
     subnets          = [aws_subnet.private_backend.id, aws_subnet.private_backend_2.id]
@@ -339,6 +359,10 @@ resource "aws_ecs_service" "booking" {
 
   wait_for_steady_state = false
   depends_on            = [aws_lb_listener.http]
+
+  lifecycle {
+    ignore_changes = [task_definition, load_balancer]
+  }
 }
 
 resource "aws_ecs_service" "review" {
@@ -347,6 +371,10 @@ resource "aws_ecs_service" "review" {
   task_definition = aws_ecs_task_definition.review.arn
   desired_count   = 2
   launch_type     = "FARGATE"
+
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
 
   network_configuration {
     subnets          = [aws_subnet.private_backend.id, aws_subnet.private_backend_2.id]
@@ -362,4 +390,8 @@ resource "aws_ecs_service" "review" {
 
   wait_for_steady_state = false
   depends_on            = [aws_lb_listener.http]
+
+  lifecycle {
+    ignore_changes = [task_definition, load_balancer]
+  }
 }
