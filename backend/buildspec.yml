@@ -1,0 +1,201 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_DEFAULT_REGION: ap-northeast-2
+    # ECR_REGISTRY, EXECUTION_ROLE_ARN, DB_HOST, DB_PASSWORD, JWT_SECRET, INTERNAL_SECRET, ALB_DNS
+    # 는 CodeBuild 프로젝트 환경변수로 주입됨 (codepipeline.tf 참고)
+
+phases:
+  pre_build:
+    commands:
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=fallback}
+
+  build:
+    commands:
+      - docker build -t $ECR_REGISTRY/auth-service:$IMAGE_TAG ./backend/auth-service
+      - docker build -t $ECR_REGISTRY/hotel-service:$IMAGE_TAG ./backend/hotel-service
+      - docker build -t $ECR_REGISTRY/booking-service:$IMAGE_TAG ./backend/booking-service
+      - docker build -t $ECR_REGISTRY/review-service:$IMAGE_TAG ./backend/review-service
+
+  post_build:
+    commands:
+      - docker push $ECR_REGISTRY/auth-service:$IMAGE_TAG
+      - docker push $ECR_REGISTRY/hotel-service:$IMAGE_TAG
+      - docker push $ECR_REGISTRY/booking-service:$IMAGE_TAG
+      - docker push $ECR_REGISTRY/review-service:$IMAGE_TAG
+
+      - |
+        printf '[{"name":"auth-service","imageUri":"%s"},{"name":"hotel-service","imageUri":"%s"},{"name":"booking-service","imageUri":"%s"},{"name":"review-service","imageUri":"%s"}]' \
+          $ECR_REGISTRY/auth-service:$IMAGE_TAG \
+          $ECR_REGISTRY/hotel-service:$IMAGE_TAG \
+          $ECR_REGISTRY/booking-service:$IMAGE_TAG \
+          $ECR_REGISTRY/review-service:$IMAGE_TAG > backend/imagedefinitions.json
+
+      - |
+        cat > backend/auth-service/taskdef.json << EOF
+        {
+          "family": "auth-service",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512",
+          "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "containerDefinitions": [{
+            "name": "auth-service",
+            "image": "$ECR_REGISTRY/auth-service:$IMAGE_TAG",
+            "portMappings": [{ "containerPort": 3001, "protocol": "tcp" }],
+            "environment": [
+              { "name": "APP_MODE",        "value": "local" },
+              { "name": "PORT",            "value": "3001" },
+              { "name": "DB_HOST",         "value": "$DB_HOST" },
+              { "name": "DB_PORT",         "value": "3306" },
+              { "name": "DB_USER",         "value": "admin" },
+              { "name": "DB_PASSWORD",     "value": "$DB_PASSWORD" },
+              { "name": "DB_NAME",         "value": "auth_db" },
+              { "name": "JWT_SECRET",      "value": "$JWT_SECRET" },
+              { "name": "INTERNAL_SECRET", "value": "$INTERNAL_SECRET" },
+              { "name": "AWS_REGION",      "value": "ap-northeast-2" }
+            ],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/auth-service",
+                "awslogs-region": "ap-northeast-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }]
+        }
+        EOF
+
+      - |
+        cat > backend/hotel-service/taskdef.json << EOF
+        {
+          "family": "hotel-service",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "512",
+          "memory": "1024",
+          "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "containerDefinitions": [{
+            "name": "hotel-service",
+            "image": "$ECR_REGISTRY/hotel-service:$IMAGE_TAG",
+            "portMappings": [{ "containerPort": 3002, "protocol": "tcp" }],
+            "environment": [
+              { "name": "APP_MODE",            "value": "local" },
+              { "name": "PORT",                "value": "3002" },
+              { "name": "DB_HOST",             "value": "$DB_HOST" },
+              { "name": "DB_PORT",             "value": "3306" },
+              { "name": "DB_USER",             "value": "admin" },
+              { "name": "DB_PASSWORD",         "value": "$DB_PASSWORD" },
+              { "name": "DB_NAME",             "value": "hotel_db" },
+              { "name": "JWT_SECRET",          "value": "$JWT_SECRET" },
+              { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
+              { "name": "AWS_REGION",          "value": "ap-northeast-2" },
+              { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
+              { "name": "REVIEW_SERVICE_URL",  "value": "http://$ALB_DNS" }
+            ],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/hotel-service",
+                "awslogs-region": "ap-northeast-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }]
+        }
+        EOF
+
+      - |
+        cat > backend/booking-service/taskdef.json << EOF
+        {
+          "family": "booking-service",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512",
+          "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "containerDefinitions": [{
+            "name": "booking-service",
+            "image": "$ECR_REGISTRY/booking-service:$IMAGE_TAG",
+            "portMappings": [{ "containerPort": 3003, "protocol": "tcp" }],
+            "environment": [
+              { "name": "APP_MODE",          "value": "local" },
+              { "name": "PORT",              "value": "3003" },
+              { "name": "DB_HOST",           "value": "$DB_HOST" },
+              { "name": "DB_PORT",           "value": "3306" },
+              { "name": "DB_USER",           "value": "admin" },
+              { "name": "DB_PASSWORD",       "value": "$DB_PASSWORD" },
+              { "name": "DB_NAME",           "value": "booking_db" },
+              { "name": "JWT_SECRET",        "value": "$JWT_SECRET" },
+              { "name": "INTERNAL_SECRET",   "value": "$INTERNAL_SECRET" },
+              { "name": "AWS_REGION",        "value": "ap-northeast-2" },
+              { "name": "HOTEL_SERVICE_URL", "value": "http://$ALB_DNS" }
+            ],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/booking-service",
+                "awslogs-region": "ap-northeast-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }]
+        }
+        EOF
+
+      - |
+        cat > backend/review-service/taskdef.json << EOF
+        {
+          "family": "review-service",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512",
+          "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "containerDefinitions": [{
+            "name": "review-service",
+            "image": "$ECR_REGISTRY/review-service:$IMAGE_TAG",
+            "portMappings": [{ "containerPort": 3004, "protocol": "tcp" }],
+            "environment": [
+              { "name": "APP_MODE",            "value": "local" },
+              { "name": "PORT",                "value": "3004" },
+              { "name": "DB_HOST",             "value": "$DB_HOST" },
+              { "name": "DB_PORT",             "value": "3306" },
+              { "name": "DB_USER",             "value": "admin" },
+              { "name": "DB_PASSWORD",         "value": "$DB_PASSWORD" },
+              { "name": "DB_NAME",             "value": "review_db" },
+              { "name": "JWT_SECRET",          "value": "$JWT_SECRET" },
+              { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
+              { "name": "AWS_REGION",          "value": "ap-northeast-2" },
+              { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
+              { "name": "HOTEL_SERVICE_URL",   "value": "http://$ALB_DNS" }
+            ],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/review-service",
+                "awslogs-region": "ap-northeast-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }]
+        }
+        EOF
+
+artifacts:
+  base-directory: backend
+  files:
+    - imagedefinitions.json
+    - auth-service/appspec.yaml
+    - hotel-service/appspec.yaml
+    - booking-service/appspec.yaml
+    - review-service/appspec.yaml
+    - auth-service/taskdef.json
+    - hotel-service/taskdef.json
+    - booking-service/taskdef.json
+    - review-service/taskdef.json
