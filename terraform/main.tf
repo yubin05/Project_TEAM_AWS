@@ -9,7 +9,8 @@ terraform {
 }
 
 provider "aws" {
-  region = "ap-northeast-2"
+  region  = var.aws_region
+  profile = var.aws_profile
 }
 
 data "aws_ssm_parameter" "al2023_ami" {
