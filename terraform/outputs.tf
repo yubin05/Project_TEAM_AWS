@@ -19,8 +19,13 @@ output "alb_internal_dns" {
 }
 
 output "rds_endpoint" {
-  description = "RDS MySQL 엔드포인트 (DMS 타깃)"
-  value       = aws_db_instance.main.address
+  description = "Aurora 클러스터 Writer 엔드포인트 (DMS 타깃)"
+  value       = aws_rds_cluster.main.endpoint
+}
+
+output "rds_reader_endpoint" {
+  description = "Aurora 클러스터 Reader 엔드포인트 (읽기 전용)"
+  value       = aws_rds_cluster.main.reader_endpoint
 }
 
 output "ecr_auth_url" {

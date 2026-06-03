@@ -132,7 +132,7 @@ resource "aws_ecs_task_definition" "auth" {
     environment = [
       { name = "APP_MODE",        value = "local" },
       { name = "PORT",            value = "3001" },
-      { name = "DB_HOST",         value = aws_db_instance.main.address },
+      { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",         value = "3306" },
       { name = "DB_USER",         value = "admin" },
       { name = "DB_PASSWORD",     value = var.db_password },
@@ -170,7 +170,7 @@ resource "aws_ecs_task_definition" "hotel" {
     environment = [
       { name = "APP_MODE",            value = "local" },
       { name = "PORT",                value = "3002" },
-      { name = "DB_HOST",             value = aws_db_instance.main.address },
+      { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",             value = "3306" },
       { name = "DB_USER",             value = "admin" },
       { name = "DB_PASSWORD",         value = var.db_password },
@@ -210,7 +210,7 @@ resource "aws_ecs_task_definition" "booking" {
     environment = [
       { name = "APP_MODE",          value = "local" },
       { name = "PORT",              value = "3003" },
-      { name = "DB_HOST",           value = aws_db_instance.main.address },
+      { name = "DB_HOST",           value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",           value = "3306" },
       { name = "DB_USER",           value = "admin" },
       { name = "DB_PASSWORD",       value = var.db_password },
@@ -249,7 +249,7 @@ resource "aws_ecs_task_definition" "review" {
     environment = [
       { name = "APP_MODE",            value = "local" },
       { name = "PORT",                value = "3004" },
-      { name = "DB_HOST",             value = aws_db_instance.main.address },
+      { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",             value = "3306" },
       { name = "DB_USER",             value = "admin" },
       { name = "DB_PASSWORD",         value = var.db_password },
