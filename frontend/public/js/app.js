@@ -74,7 +74,8 @@ function navigateTo(page, params = {}) {
     case 'booking': loadBookingPage(params); break;
     case 'bookings': loadMyBookings(); break;
     case 'wishlist': loadWishlist(); break;
-    case 'profile': loadProfile(); break;
+    case 'mypage': loadMypage(); break;
+    case 'support': loadSupportPage(params.section); break;
     case 'admin': loadAdminPage(); break;
   }
 }
@@ -180,6 +181,84 @@ function setupEventListeners() {
   // Admin forms
   document.getElementById('admin-hotel-form').addEventListener('submit', handleAdminHotelSubmit);
   document.getElementById('admin-room-form').addEventListener('submit', handleAdminRoomSubmit);
+
+  // Category dropdown toggle
+  const categoryBtn = document.getElementById('btn-category-menu');
+  const categoryDropdown = document.getElementById('category-dropdown');
+  if (categoryBtn && categoryDropdown) {
+    categoryBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      categoryDropdown.classList.toggle('show');
+    });
+    document.addEventListener('click', () => categoryDropdown.classList.remove('show'));
+    categoryDropdown.querySelectorAll('.category-item').forEach(item => {
+      item.addEventListener('click', e => {
+        e.preventDefault();
+        categoryDropdown.classList.remove('show');
+        navigateTo('search', { category: item.dataset.category });
+      });
+    });
+  }
+
+  // Mypage tabs
+  document.querySelectorAll('.mypage-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchMypageTab(tab.dataset.tab));
+  });
+
+  // Mypage bookings status tabs (동적 생성된 탭도 처리)
+  document.getElementById('mypage-bookings')?.addEventListener('click', e => {
+    const tab = e.target.closest('.tab');
+    if (tab) {
+      document.querySelectorAll('#mypage-bookings .tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      loadMyBookingsInMypage(tab.dataset.status);
+    }
+  });
+
+  // Mypage inquiry → 고객센터로 이동
+  document.getElementById('mypage-inquiries')?.addEventListener('click', e => {
+    if (e.target.dataset.page === 'support') {
+      navigateTo('support', { section: 'inquiry-write' });
+    }
+  });
+
+  // Support sidebar menu
+  document.querySelectorAll('.support-menu-item').forEach(item => {
+    item.addEventListener('click', e => {
+      e.preventDefault();
+      switchSupportSection(item.dataset.support);
+    });
+  });
+
+  // FAQ accordion
+  document.querySelectorAll('.faq-question').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = btn.closest('.faq-item');
+      const isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
+      if (!isOpen) item.classList.add('open');
+    });
+  });
+
+  // Inquiry form submit
+  document.getElementById('inquiry-form')?.addEventListener('submit', handleInquirySubmit);
+
+  // Inquiry type change
+  document.getElementById('inquiry-type')?.addEventListener('change', e => {
+    const field = document.getElementById('booking-id-field');
+    if (field) field.style.display = ['refund', 'change'].includes(e.target.value) ? 'block' : 'none';
+  });
+
+  // File attach
+  document.getElementById('inquiry-files')?.addEventListener('change', e => handleFileSelect(e.target.files));
+
+  // Footer support direct links
+  document.querySelectorAll('[data-support-direct]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      navigateTo('support', { section: el.dataset.supportDirect });
+    });
+  });
 }
 
 // ===== Auth =====
@@ -244,16 +323,14 @@ function logout() {
 function updateAuthUI() {
   const authButtons = document.getElementById('auth-buttons');
   const userMenu = document.getElementById('user-menu');
-  const navBookings = document.getElementById('nav-bookings');
-  const navWishlist = document.getElementById('nav-wishlist');
+  const navMypage = document.getElementById('nav-mypage');
 
   const isAdmin = state.user && (state.user.role === 'admin' || state.user.role === 'host');
 
   if (state.user) {
     authButtons.style.display = 'none';
     userMenu.style.display = 'flex';
-    navBookings.style.display = 'block';
-    navWishlist.style.display = 'block';
+    if (navMypage) navMypage.style.display = 'block';
     document.getElementById('user-initials').textContent = state.user.name[0].toUpperCase();
     document.getElementById('user-name-display').textContent = state.user.name;
     document.getElementById('user-email-display').textContent = state.user.email;
@@ -262,8 +339,7 @@ function updateAuthUI() {
   } else {
     authButtons.style.display = 'flex';
     userMenu.style.display = 'none';
-    navBookings.style.display = 'none';
-    navWishlist.style.display = 'none';
+    if (navMypage) navMypage.style.display = 'none';
     document.getElementById('nav-admin').style.display = 'none';
     document.getElementById('dropdown-admin').style.display = 'none';
   }
@@ -836,7 +912,113 @@ async function toggleWishlist(hotelId, btn) {
   }
 }
 
-// ===== Profile =====
+// ===== Mypage =====
+async function loadMypage() {
+  if (!state.user) { openModal('modal-login'); navigateTo('home'); return; }
+  switchMypageTab('mypage-info');
+  try {
+    const res = await api('/auth/profile');
+    const user = res.data;
+    document.getElementById('profile-name').value = user.name || '';
+    document.getElementById('profile-email').value = user.email || '';
+    document.getElementById('profile-phone').value = user.phone || '';
+  } catch {}
+}
+
+function switchMypageTab(tabId) {
+  document.querySelectorAll('.mypage-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+  document.querySelectorAll('.mypage-tab-content').forEach(c => c.classList.toggle('active', c.id === tabId));
+  if (tabId === 'mypage-bookings') loadMyBookingsInMypage('');
+  if (tabId === 'mypage-wishlist') loadWishlistInMypage();
+  if (tabId === 'mypage-inquiries') loadMyInquiries();
+}
+
+async function loadMyBookingsInMypage(status) {
+  if (!state.user) return;
+  const container = document.getElementById('mypage-bookings-list');
+  container.innerHTML = '<div class="loading-spinner">예약 내역을 불러오는 중...</div>';
+  try {
+    const qp = status ? `?status=${status}` : '';
+    const res = await api(`/bookings${qp}`);
+    const { bookings } = res.data;
+    if (bookings.length === 0) {
+      container.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><p>예약 내역이 없습니다.</p></div>';
+      return;
+    }
+    const statusLabels = { confirmed: '확정', pending: '대기중', cancelled: '취소', completed: '완료' };
+    container.innerHTML = bookings.map(b => {
+      const img = b.hotel_images?.[0] || 'https://placehold.co/200x150';
+      const ci = new Date(b.check_in_date).toLocaleDateString('ko-KR');
+      const co = new Date(b.check_out_date).toLocaleDateString('ko-KR');
+      const canCancel = b.status !== 'cancelled' && b.status !== 'completed';
+      const canReview = b.status === 'confirmed' || b.status === 'completed';
+      return `
+        <div class="booking-item">
+          <div class="booking-item-img"><img src="${img}" onerror="this.src='https://placehold.co/200x150'"></div>
+          <div class="booking-item-info">
+            <div class="booking-item-title">${b.hotel_name}</div>
+            <div style="color:var(--text-light);margin-bottom:4px">${b.room_name}</div>
+            <div class="booking-item-dates">${ci} ~ ${co}</div>
+            <div>총 금액: <strong>${Math.floor(b.total_price).toLocaleString()}원</strong></div>
+            <div class="booking-item-actions">
+              <span class="booking-status status-${b.status}">${statusLabels[b.status] || b.status}</span>
+              ${canCancel ? `<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem" onclick="cancelBookingMypage('${b.id}')">예약 취소</button>` : ''}
+              ${canReview ? `<button class="btn btn-outline" style="padding:4px 12px;font-size:0.8rem;color:var(--primary);border-color:var(--primary)" onclick="openReviewModal('${b.id}','${b.hotel_id}','${b.hotel_name}')">리뷰 작성</button>` : ''}
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+  }
+}
+
+async function cancelBookingMypage(bookingId) {
+  if (!confirm('예약을 취소하시겠습니까?')) return;
+  try {
+    await api(`/bookings/${bookingId}`, { method: 'DELETE' });
+    showToast('예약이 취소되었습니다.', 'success');
+    loadMyBookingsInMypage('');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadWishlistInMypage() {
+  if (!state.user) return;
+  const container = document.getElementById('mypage-wishlist-list');
+  container.innerHTML = '<div class="loading-spinner">위시리스트를 불러오는 중...</div>';
+  try {
+    const res = await api('/wishlist');
+    if (res.data.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-icon">🤍</div><p>찜한 숙소가 없습니다.</p></div>';
+      return;
+    }
+    container.innerHTML = res.data.map(hotel => renderHotelCard(hotel)).join('');
+    attachHotelCardEvents(container);
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+  }
+}
+
+async function loadMyInquiries() {
+  if (!state.user) return;
+  const container = document.getElementById('mypage-inquiry-list');
+  container.innerHTML = '<div class="loading-spinner">문의 내역을 불러오는 중...</div>';
+  try {
+    const res = await apiSupport('/inquiries');
+    const inquiries = res.data || [];
+    if (inquiries.length === 0) {
+      container.innerHTML = '<div class="empty-state">문의 내역이 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = inquiries.map(q => renderInquiryCard(q)).join('');
+  } catch {
+    container.innerHTML = '<div class="empty-state">문의 내역을 불러올 수 없습니다.</div>';
+  }
+}
+
+// ===== Profile (legacy) =====
 async function loadProfile() {
   if (!state.user) { openModal('modal-login'); return; }
   try {
@@ -1400,6 +1582,104 @@ function initAzureMap(containerId, lat, lng, name) {
     map.markers.add(marker);
     marker.getPopup().open(map);
   });
+}
+
+// ===== Support API helper =====
+async function apiSupport(endpoint, options = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+  const res = await fetch(`${SUPPORT_BASE}${endpoint}`, { ...options, headers: { ...headers, ...options.headers } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || '오류가 발생했습니다.');
+  return data;
+}
+
+// ===== Support Page =====
+function loadSupportPage(section) {
+  switchSupportSection(section || 'inquiry-write');
+  if (section === 'inquiry-list') loadSupportInquiryList();
+}
+
+function switchSupportSection(sectionId) {
+  document.querySelectorAll('.support-menu-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.support === sectionId);
+  });
+  document.querySelectorAll('.support-section').forEach(s => {
+    s.classList.toggle('active', s.id === `support-${sectionId}`);
+  });
+  if (sectionId === 'inquiry-list') loadSupportInquiryList();
+}
+
+async function handleInquirySubmit(e) {
+  e.preventDefault();
+  if (!state.user) { showToast('로그인 후 문의하실 수 있습니다.', 'info'); openModal('modal-login'); return; }
+
+  const errEl = document.getElementById('inquiry-error');
+  errEl.textContent = '';
+
+  const body = {
+    type: document.getElementById('inquiry-type').value,
+    title: document.getElementById('inquiry-title').value.trim(),
+    content: document.getElementById('inquiry-content').value.trim(),
+    booking_id: document.getElementById('inquiry-booking-id')?.value || null,
+  };
+
+  try {
+    await apiSupport('/inquiries', { method: 'POST', body: JSON.stringify(body) });
+    showToast('문의가 접수되었습니다.', 'success');
+    e.target.reset();
+    document.getElementById('file-list').innerHTML = '';
+    document.getElementById('booking-id-field').style.display = 'none';
+    switchSupportSection('inquiry-list');
+  } catch (err) {
+    errEl.textContent = err.message;
+  }
+}
+
+async function loadSupportInquiryList() {
+  if (!state.user) return;
+  const container = document.getElementById('support-inquiry-items');
+  container.innerHTML = '<div class="loading-spinner">문의 내역을 불러오는 중...</div>';
+  try {
+    const res = await apiSupport('/inquiries');
+    const inquiries = res.data || [];
+    if (inquiries.length === 0) {
+      container.innerHTML = '<div class="empty-state">문의 내역이 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = inquiries.map(q => renderInquiryCard(q)).join('');
+  } catch {
+    container.innerHTML = '<div class="empty-state">문의 내역을 불러올 수 없습니다.</div>';
+  }
+}
+
+function renderInquiryCard(q) {
+  const typeLabels = { general: '일반 문의', refund: '환불 요청', change: '예약 변경', complaint: '불편 신고', etc: '기타' };
+  const statusClass = q.status === 'answered' ? 'status-confirmed' : 'status-pending';
+  const statusText = q.status === 'answered' ? '답변 완료' : '접수됨';
+  const date = new Date(q.created_at).toLocaleDateString('ko-KR');
+  return `
+    <div class="inquiry-card">
+      <div class="inquiry-header">
+        <span class="inquiry-type-badge">${typeLabels[q.type] || q.type}</span>
+        <span class="booking-status ${statusClass}">${statusText}</span>
+      </div>
+      <div class="inquiry-title">${q.title}</div>
+      <div class="inquiry-meta">${date}</div>
+      ${q.answer ? `<div class="inquiry-answer"><strong>답변:</strong> ${q.answer}</div>` : ''}
+    </div>`;
+}
+
+function handleFileSelect(files) {
+  const listEl = document.getElementById('file-list');
+  if (!files || files.length === 0) { listEl.innerHTML = ''; return; }
+  const max = 3;
+  const selected = Array.from(files).slice(0, max);
+  listEl.innerHTML = selected.map(f => `
+    <div class="file-item">
+      <span class="file-name">📎 ${f.name}</span>
+      <span class="file-size">(${(f.size / 1024).toFixed(0)}KB)</span>
+    </div>`).join('');
 }
 
 // ===== Toast =====

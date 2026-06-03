@@ -62,11 +62,22 @@ resource "aws_apigatewayv2_integration" "review" {
   request_parameters = { "overwrite:path" = "$request.path" }
 }
 
+resource "aws_apigatewayv2_integration" "support" {
+  api_id             = aws_apigatewayv2_api.main.id
+  integration_type   = "HTTP_PROXY"
+  integration_uri    = aws_lb_listener.support.arn
+  integration_method = "ANY"
+  connection_type    = "VPC_LINK"
+  connection_id      = aws_apigatewayv2_vpc_link.main.id
+  request_parameters = { "overwrite:path" = "$request.path" }
+}
+
 locals {
   int_auth    = "integrations/${aws_apigatewayv2_integration.auth.id}"
   int_hotel   = "integrations/${aws_apigatewayv2_integration.hotel.id}"
   int_booking = "integrations/${aws_apigatewayv2_integration.booking.id}"
   int_review  = "integrations/${aws_apigatewayv2_integration.review.id}"
+  int_support = "integrations/${aws_apigatewayv2_integration.support.id}"
   # TODO: Cognito 설정 완료 후 각 인증 필요 라우트에 아래 추가
   # authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
   # authorization_type = "JWT"
@@ -259,6 +270,46 @@ resource "aws_apigatewayv2_route" "reviews_delete" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "DELETE /reviews/{id}"
   target    = local.int_review
+}
+
+# ── support-service ──────────────────────────────────────────────────────────
+
+# 공개
+resource "aws_apigatewayv2_route" "notices_list" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /notices"
+  target    = local.int_support
+}
+
+# 인증 필요
+resource "aws_apigatewayv2_route" "inquiries_create" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /inquiries"
+  target    = local.int_support
+}
+
+resource "aws_apigatewayv2_route" "inquiries_list" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /inquiries"
+  target    = local.int_support
+}
+
+resource "aws_apigatewayv2_route" "inquiries_delete" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "DELETE /inquiries/{id}"
+  target    = local.int_support
+}
+
+resource "aws_apigatewayv2_route" "inquiries_admin_list" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /admin/inquiries"
+  target    = local.int_support
+}
+
+resource "aws_apigatewayv2_route" "inquiries_admin_answer" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "PUT /admin/inquiries/{id}/answer"
+  target    = local.int_support
 }
 
 # ── Stage ─────────────────────────────────────────────────────────────────────

@@ -44,6 +44,14 @@ resource "aws_security_group" "alb" {
     cidr_blocks = ["10.1.0.0/16"]
   }
 
+  ingress {
+    description = "support-service"
+    from_port   = 3005
+    to_port     = 3005
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -123,6 +131,21 @@ resource "aws_lb_target_group" "review" {
   tags = { Name = "ThreeTier-Review-TG" }
 }
 
+resource "aws_lb_target_group" "support" {
+  name        = "ThreeTier-Support-TG"
+  port        = 3005
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Support-TG" }
+}
+
 # ── Green Target Groups (Blue/Green 배포용) ───────────────────────────────────
 resource "aws_lb_target_group" "auth_green" {
   name        = "ThreeTier-Auth-TG-Green"
@@ -184,6 +207,21 @@ resource "aws_lb_target_group" "review_green" {
   tags = { Name = "ThreeTier-Review-TG-Green" }
 }
 
+resource "aws_lb_target_group" "support_green" {
+  name        = "ThreeTier-Support-TG-Green"
+  port        = 3005
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Support-TG-Green" }
+}
+
 # ── 서비스별 리스너 (CodeDeploy Blue/Green이 리스너 단위로 TG 전환) ────────────
 # lifecycle ignore_changes = [default_action] — CodeDeploy가 TG 전환 후 terraform이 덮어쓰지 않도록
 
@@ -233,6 +271,19 @@ resource "aws_lb_listener" "review" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.review.arn
+  }
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+resource "aws_lb_listener" "support" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 3005
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.support.arn
   }
   lifecycle {
     ignore_changes = [default_action]

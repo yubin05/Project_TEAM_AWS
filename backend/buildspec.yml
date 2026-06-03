@@ -19,6 +19,7 @@ phases:
       - docker build -t $ECR_REGISTRY/hotel-service:$IMAGE_TAG ./backend/hotel-service
       - docker build -t $ECR_REGISTRY/booking-service:$IMAGE_TAG ./backend/booking-service
       - docker build -t $ECR_REGISTRY/review-service:$IMAGE_TAG ./backend/review-service
+      - docker build -t $ECR_REGISTRY/support-service:$IMAGE_TAG ./backend/support-service
 
   post_build:
     commands:
@@ -26,13 +27,17 @@ phases:
       - docker push $ECR_REGISTRY/hotel-service:$IMAGE_TAG
       - docker push $ECR_REGISTRY/booking-service:$IMAGE_TAG
       - docker push $ECR_REGISTRY/review-service:$IMAGE_TAG
+      - docker push $ECR_REGISTRY/support-service:$IMAGE_TAG
+      - docker tag $ECR_REGISTRY/support-service:$IMAGE_TAG $ECR_REGISTRY/support-service:latest
+      - docker push $ECR_REGISTRY/support-service:latest
 
       - |
-        printf '[{"name":"auth-service","imageUri":"%s"},{"name":"hotel-service","imageUri":"%s"},{"name":"booking-service","imageUri":"%s"},{"name":"review-service","imageUri":"%s"}]' \
+        printf '[{"name":"auth-service","imageUri":"%s"},{"name":"hotel-service","imageUri":"%s"},{"name":"booking-service","imageUri":"%s"},{"name":"review-service","imageUri":"%s"},{"name":"support-service","imageUri":"%s"}]' \
           $ECR_REGISTRY/auth-service:$IMAGE_TAG \
           $ECR_REGISTRY/hotel-service:$IMAGE_TAG \
           $ECR_REGISTRY/booking-service:$IMAGE_TAG \
-          $ECR_REGISTRY/review-service:$IMAGE_TAG > backend/imagedefinitions.json
+          $ECR_REGISTRY/review-service:$IMAGE_TAG \
+          $ECR_REGISTRY/support-service:$IMAGE_TAG > backend/imagedefinitions.json
 
       - |
         cat > backend/auth-service/taskdef.json << EOF
@@ -187,6 +192,43 @@ phases:
         }
         EOF
 
+      - |
+        cat > backend/support-service/taskdef.json << EOF
+        {
+          "family": "support-service",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512",
+          "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "containerDefinitions": [{
+            "name": "support-service",
+            "image": "$ECR_REGISTRY/support-service:$IMAGE_TAG",
+            "portMappings": [{ "containerPort": 3005, "protocol": "tcp" }],
+            "environment": [
+              { "name": "APP_MODE",        "value": "local" },
+              { "name": "PORT",            "value": "3005" },
+              { "name": "DB_HOST",         "value": "$DB_HOST" },
+              { "name": "DB_PORT",         "value": "3306" },
+              { "name": "DB_USER",         "value": "admin" },
+              { "name": "DB_PASSWORD",     "value": "$DB_PASSWORD" },
+              { "name": "DB_NAME",         "value": "support_db" },
+              { "name": "JWT_SECRET",      "value": "$JWT_SECRET" },
+              { "name": "INTERNAL_SECRET", "value": "$INTERNAL_SECRET" },
+              { "name": "AWS_REGION",      "value": "ap-northeast-2" }
+            ],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/support-service",
+                "awslogs-region": "ap-northeast-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }]
+        }
+        EOF
+
 artifacts:
   base-directory: backend
   files:
@@ -195,7 +237,9 @@ artifacts:
     - hotel-service/appspec.yaml
     - booking-service/appspec.yaml
     - review-service/appspec.yaml
+    - support-service/appspec.yaml
     - auth-service/taskdef.json
     - hotel-service/taskdef.json
     - booking-service/taskdef.json
     - review-service/taskdef.json
+    - support-service/taskdef.json

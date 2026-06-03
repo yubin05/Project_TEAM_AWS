@@ -64,3 +64,9 @@ variable "github_connection_uuid" {
   description = "CodeConnections GitHub 연결 UUID (콘솔 → CodePipeline → Settings → Connections에서 확인)"
   type        = string
 }
+
+variable "deploy_branch" {
+  description = "CodePipeline/Amplify가 감지할 Git 브랜치 (개인 계정: dev, 팀 계정: main)"
+  type        = string
+  default     = "main"
+}

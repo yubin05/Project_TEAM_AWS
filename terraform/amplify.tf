@@ -25,7 +25,7 @@ resource "aws_amplify_app" "frontend" {
 # ── Amplify Branch (main) ──────────────────────────────────────────────────────
 resource "aws_amplify_branch" "main" {
   app_id      = aws_amplify_app.frontend.id
-  branch_name = "main"
+  branch_name = var.deploy_branch
 
   enable_auto_build = true
 }
@@ -37,7 +37,7 @@ resource "null_resource" "amplify_build_trigger" {
   }
 
   provisioner "local-exec" {
-    command = "aws amplify start-job --app-id ${aws_amplify_app.frontend.id} --branch-name main --job-type RELEASE --region ap-northeast-2 --profile yubin03"
+    command = "aws amplify start-job --app-id ${aws_amplify_app.frontend.id} --branch-name ${var.deploy_branch} --job-type RELEASE --region ap-northeast-2 --profile ${var.aws_profile}"
   }
 
   depends_on = [aws_amplify_branch.main]

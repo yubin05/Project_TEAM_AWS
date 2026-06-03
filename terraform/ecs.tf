@@ -77,7 +77,7 @@ resource "aws_security_group" "ecs_tasks" {
   ingress {
     description     = "From ALB to service ports"
     from_port       = 3001
-    to_port         = 3004
+    to_port         = 3005
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }
@@ -108,6 +108,11 @@ resource "aws_cloudwatch_log_group" "booking" {
 
 resource "aws_cloudwatch_log_group" "review" {
   name              = "/ecs/review-service"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_log_group" "support" {
+  name              = "/ecs/support-service"
   retention_in_days = 30
 }
 
@@ -271,6 +276,41 @@ resource "aws_ecs_task_definition" "review" {
   }])
 }
 
+resource "aws_ecs_task_definition" "support" {
+  family                   = "support-service"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+
+  container_definitions = jsonencode([{
+    name  = "support-service"
+    image = "${aws_ecr_repository.support.repository_url}:latest"
+    portMappings = [{ containerPort = 3005, protocol = "tcp" }]
+    environment = [
+      { name = "APP_MODE",        value = "local" },
+      { name = "PORT",            value = "3005" },
+      { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",         value = "3306" },
+      { name = "DB_USER",         value = "admin" },
+      { name = "DB_PASSWORD",     value = var.db_password },
+      { name = "DB_NAME",         value = "support_db" },
+      { name = "JWT_SECRET",      value = var.jwt_secret },
+      { name = "INTERNAL_SECRET", value = var.internal_secret },
+      { name = "AWS_REGION",      value = "ap-northeast-2" }
+    ]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        "awslogs-group"         = "/ecs/support-service"
+        "awslogs-region"        = "ap-northeast-2"
+        "awslogs-stream-prefix" = "ecs"
+      }
+    }
+  }])
+}
+
 # ── ECS Services ──────────────────────────────────────────────────────────────
 resource "aws_ecs_service" "auth" {
   name            = "auth-service"
@@ -386,6 +426,37 @@ resource "aws_ecs_service" "review" {
     target_group_arn = aws_lb_target_group.review.arn
     container_name   = "review-service"
     container_port   = 3004
+  }
+
+  wait_for_steady_state = false
+  depends_on            = [aws_lb_listener.http]
+
+  lifecycle {
+    ignore_changes = [task_definition, load_balancer]
+  }
+}
+
+resource "aws_ecs_service" "support" {
+  name            = "support-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.support.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  deployment_controller {
+    type = "CODE_DEPLOY"
+  }
+
+  network_configuration {
+    subnets          = [aws_subnet.private_backend.id, aws_subnet.private_backend_2.id]
+    security_groups  = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = false
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.support.arn
+    container_name   = "support-service"
+    container_port   = 3005
   }
 
   wait_for_steady_state = false

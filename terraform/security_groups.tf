@@ -86,9 +86,9 @@ resource "aws_security_group" "backend" {
   }
 
   ingress {
-    description = "Frontend to backend service ports 3001-3004"
+    description = "Frontend to backend service ports 3001-3005"
     from_port   = 3001
-    to_port     = 3004
+    to_port     = 3005
     protocol    = "tcp"
     cidr_blocks = ["10.1.1.0/24"]
   }
@@ -96,7 +96,7 @@ resource "aws_security_group" "backend" {
   ingress {
     description = "Inter-service communication"
     from_port   = 3001
-    to_port     = 3004
+    to_port     = 3005
     protocol    = "tcp"
     cidr_blocks = ["10.1.2.0/24"]
   }
