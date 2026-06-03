@@ -150,10 +150,11 @@ backend/dist/
 # Terraform
 terraform/.terraform/
 terraform/terraform.tfstate
+terraform/terraform.tfstate.d/
 terraform/terraform.tfstate.backup
 terraform/.terraform.lock.hcl
 terraform/.terraform.tfstate.lock.info
-terraform/terraform.tfvars
+terraform/*.tfvars
 
 # .local
 .local/
