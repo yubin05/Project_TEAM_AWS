@@ -47,3 +47,8 @@ variable "db_password" {
   sensitive   = true
   default     = "Change-me-db-password1!"
 }
+
+variable "github_connection_uuid" {
+  description = "CodeConnections GitHub 연결 UUID (콘솔 → CodePipeline → Settings → Connections에서 확인)"
+  type        = string
+}
