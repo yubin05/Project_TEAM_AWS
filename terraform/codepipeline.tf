@@ -263,6 +263,14 @@ resource "aws_codebuild_project" "main" {
       name  = "ALB_DNS"
       value = aws_lb.internal.dns_name
     }
+    environment_variable {
+      name  = "S3_UPLOADS_BUCKET"
+      value = aws_s3_bucket.uploads.id
+    }
+    environment_variable {
+      name  = "SUPPORT_TASK_ROLE_ARN"
+      value = aws_iam_role.ecs_task_support.arn
+    }
   }
 
   cache {

@@ -17,6 +17,7 @@ CREATE DATABASE IF NOT EXISTS auth_db;
 CREATE DATABASE IF NOT EXISTS hotel_db;
 CREATE DATABASE IF NOT EXISTS booking_db;
 CREATE DATABASE IF NOT EXISTS review_db;
+CREATE DATABASE IF NOT EXISTS support_db;
 ```
 
 > RDS 엔드포인트 확인: `terraform output rds_endpoint`

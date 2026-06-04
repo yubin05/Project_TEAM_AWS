@@ -282,6 +282,12 @@ resource "aws_apigatewayv2_route" "notices_list" {
 }
 
 # 인증 필요
+resource "aws_apigatewayv2_route" "inquiries_presign" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /inquiries/presign"
+  target    = local.int_support
+}
+
 resource "aws_apigatewayv2_route" "inquiries_create" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /inquiries"

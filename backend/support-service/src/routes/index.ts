@@ -44,6 +44,8 @@ async function attachPresignedUrls(files: { name: string; key: string; size: num
   if (!s3 || files.length === 0) return files;
   return Promise.all(files.map(async f => ({
     ...f,
+    // TODO: 이미지 파일(jpg/png)은 thumb_ prefix key로 썸네일 미리보기 URL도 함께 반환 가능
+    // Lambda + S3 이벤트로 업로드 시 자동 리사이즈 후 inquiries/thumb_{filename} 저장 방식 권장
     url: await getSignedUrl(s3, new GetObjectCommand({ Bucket: config.s3.bucket, Key: f.key }), { expiresIn: 3600 }),
   })));
 }

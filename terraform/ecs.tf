@@ -204,6 +204,7 @@ resource "aws_ecs_task_definition" "support" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
+  task_role_arn            = aws_iam_role.ecs_task_support.arn
 
   container_definitions = jsonencode([{
     name  = "support-service"
@@ -217,9 +218,10 @@ resource "aws_ecs_task_definition" "support" {
       { name = "DB_USER",         value = "admin" },
       { name = "DB_PASSWORD",     value = var.db_password },
       { name = "DB_NAME",         value = "support_db" },
-      { name = "JWT_SECRET",      value = var.jwt_secret },
-      { name = "INTERNAL_SECRET", value = var.internal_secret },
-      { name = "AWS_REGION",      value = var.aws_region }
+      { name = "JWT_SECRET",        value = var.jwt_secret },
+      { name = "INTERNAL_SECRET",   value = var.internal_secret },
+      { name = "AWS_REGION",        value = var.aws_region },
+      { name = "S3_UPLOADS_BUCKET", value = aws_s3_bucket.uploads.id }
     ]
     logConfiguration = {
       logDriver = "awslogs"
