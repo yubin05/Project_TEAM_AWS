@@ -10,85 +10,6 @@ resource "aws_ecs_cluster" "main" {
   tags = { Name = "ThreeTier-Cluster" }
 }
 
-# ── ECS Task Execution Role ───────────────────────────────────────────────────
-resource "aws_iam_role" "ecs_task_execution" {
-  name = "ThreeTier-ECS-TaskExecution-Role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "ecs-tasks.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-
-  tags = { Name = "ThreeTier-ECS-TaskExecution-Role" }
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
-  role       = aws_iam_role.ecs_task_execution.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-# ── ECS Task Role (Secrets Manager 설정 완료 후 주석 해제) ────────────────────
-# resource "aws_iam_role" "ecs_task" {
-#   name = "ThreeTier-ECS-Task-Role"
-#
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [{
-#       Effect    = "Allow"
-#       Principal = { Service = "ecs-tasks.amazonaws.com" }
-#       Action    = "sts:AssumeRole"
-#     }]
-#   })
-#
-#   tags = { Name = "ThreeTier-ECS-Task-Role" }
-# }
-#
-# resource "aws_iam_role_policy_attachment" "ecs_task_sqs" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
-# }
-#
-# resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
-# }
-#
-# resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
-# }
-#
-# resource "aws_iam_role_policy_attachment" "ecs_task_ses" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
-# }
-
-# ── ECS Tasks Security Group ──────────────────────────────────────────────────
-resource "aws_security_group" "ecs_tasks" {
-  name        = "ThreeTier-ECS-Tasks-SG"
-  description = "ECS Fargate Tasks Security Group"
-  vpc_id      = aws_vpc.main.id
-  tags        = { Name = "ThreeTier-ECS-Tasks-SG" }
-
-  ingress {
-    description     = "From ALB to service ports"
-    from_port       = 3001
-    to_port         = 3005
-    protocol        = "tcp"
-    security_groups = [aws_security_group.alb.id]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
 
 # ── CloudWatch Log Groups ─────────────────────────────────────────────────────
 resource "aws_cloudwatch_log_group" "auth" {
@@ -144,13 +65,13 @@ resource "aws_ecs_task_definition" "auth" {
       { name = "DB_NAME",         value = "auth_db" },
       { name = "JWT_SECRET",      value = var.jwt_secret },
       { name = "INTERNAL_SECRET", value = var.internal_secret },
-      { name = "AWS_REGION",      value = "ap-northeast-2" }
+      { name = "AWS_REGION",      value = var.aws_region }
     ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         "awslogs-group"         = "/ecs/auth-service"
-        "awslogs-region"        = "ap-northeast-2"
+        "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }
@@ -182,7 +103,7 @@ resource "aws_ecs_task_definition" "hotel" {
       { name = "DB_NAME",             value = "hotel_db" },
       { name = "JWT_SECRET",          value = var.jwt_secret },
       { name = "INTERNAL_SECRET",     value = var.internal_secret },
-      { name = "AWS_REGION",          value = "ap-northeast-2" },
+      { name = "AWS_REGION",          value = var.aws_region },
       { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
       { name = "REVIEW_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" }
     ]
@@ -190,7 +111,7 @@ resource "aws_ecs_task_definition" "hotel" {
       logDriver = "awslogs"
       options = {
         "awslogs-group"         = "/ecs/hotel-service"
-        "awslogs-region"        = "ap-northeast-2"
+        "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }
@@ -222,14 +143,14 @@ resource "aws_ecs_task_definition" "booking" {
       { name = "DB_NAME",           value = "booking_db" },
       { name = "JWT_SECRET",        value = var.jwt_secret },
       { name = "INTERNAL_SECRET",   value = var.internal_secret },
-      { name = "AWS_REGION",        value = "ap-northeast-2" },
+      { name = "AWS_REGION",        value = var.aws_region },
       { name = "HOTEL_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         "awslogs-group"         = "/ecs/booking-service"
-        "awslogs-region"        = "ap-northeast-2"
+        "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }
@@ -261,7 +182,7 @@ resource "aws_ecs_task_definition" "review" {
       { name = "DB_NAME",             value = "review_db" },
       { name = "JWT_SECRET",          value = var.jwt_secret },
       { name = "INTERNAL_SECRET",     value = var.internal_secret },
-      { name = "AWS_REGION",          value = "ap-northeast-2" },
+      { name = "AWS_REGION",          value = var.aws_region },
       { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
       { name = "HOTEL_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}" }
     ]
@@ -269,7 +190,7 @@ resource "aws_ecs_task_definition" "review" {
       logDriver = "awslogs"
       options = {
         "awslogs-group"         = "/ecs/review-service"
-        "awslogs-region"        = "ap-northeast-2"
+        "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }
@@ -298,13 +219,13 @@ resource "aws_ecs_task_definition" "support" {
       { name = "DB_NAME",         value = "support_db" },
       { name = "JWT_SECRET",      value = var.jwt_secret },
       { name = "INTERNAL_SECRET", value = var.internal_secret },
-      { name = "AWS_REGION",      value = "ap-northeast-2" }
+      { name = "AWS_REGION",      value = var.aws_region }
     ]
     logConfiguration = {
       logDriver = "awslogs"
       options = {
         "awslogs-group"         = "/ecs/support-service"
-        "awslogs-region"        = "ap-northeast-2"
+        "awslogs-region"        = var.aws_region
         "awslogs-stream-prefix" = "ecs"
       }
     }

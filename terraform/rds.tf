@@ -1,25 +1,3 @@
-resource "aws_security_group" "rds" {
-  name        = "ThreeTier-RDS-SG"
-  description = "Aurora MySQL Security Group"
-  vpc_id      = aws_vpc.main.id
-  tags        = { Name = "ThreeTier-RDS-SG" }
-
-  ingress {
-    # 10.1.3.0/24: MySQL EC2(온프레미스 DB)에서 RDS 접근 허용 — DMS 마이그레이션 완료 후 제거
-    description = "MySQL from backend and on-premises DB subnet"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.2.0/24", "10.1.5.0/24", "10.1.3.0/24"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
 
 resource "aws_db_subnet_group" "main" {
   name       = "threetier-db-subnet-group"

@@ -1,22 +1,4 @@
 
-# ── CodeDeploy IAM 역할 ───────────────────────────────────────────────────────
-resource "aws_iam_role" "codedeploy" {
-  name = "ThreeTier-CodeDeploy-ECS-Role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "codedeploy.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "codedeploy" {
-  role       = aws_iam_role.codedeploy.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
-}
-
 # ── CodeDeploy 앱 ─────────────────────────────────────────────────────────────
 resource "aws_codedeploy_app" "main" {
   compute_platform = "ECS"
@@ -209,58 +191,6 @@ resource "aws_codedeploy_deployment_group" "support" {
   }
 }
 
-# ── CodePipeline IAM 역할 ─────────────────────────────────────────────────────
-resource "aws_iam_role" "codepipeline" {
-  name = "ThreeTier-CodePipeline-Role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "codepipeline.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "codepipeline" {
-  role = aws_iam_role.codepipeline.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["s3:*"]
-        Resource = ["${aws_s3_bucket.pipeline_artifacts.arn}", "${aws_s3_bucket.pipeline_artifacts.arn}/*"]
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["codebuild:StartBuild", "codebuild:BatchGetBuilds"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["codedeploy:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["ecs:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["iam:PassRole"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["codestar-connections:UseConnection"]
-        Resource = "*"
-      }
-    ]
-  })
-}
-
 # ── S3 아티팩트 버킷 ──────────────────────────────────────────────────────────
 resource "aws_s3_bucket" "pipeline_artifacts" {
   bucket        = "threetier-pipeline-artifacts-${data.aws_caller_identity.current.account_id}"
@@ -279,43 +209,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "pipeline_artifacts" {
 }
 
 data "aws_caller_identity" "current" {}
-
-# ── CodeBuild IAM 역할 ────────────────────────────────────────────────────────
-resource "aws_iam_role" "codebuild" {
-  name = "ThreeTier-CodeBuild-Role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "codebuild.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "codebuild_ecr" {
-  role       = aws_iam_role.codebuild.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
-}
-
-resource "aws_iam_role_policy" "codebuild" {
-  role = aws_iam_role.codebuild.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject"]
-        Resource = "${aws_s3_bucket.pipeline_artifacts.arn}/*"
-      }
-    ]
-  })
-}
 
 # ── CodeBuild 프로젝트 ────────────────────────────────────────────────────────
 resource "aws_codebuild_project" "main" {
@@ -337,11 +230,11 @@ resource "aws_codebuild_project" "main" {
 
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
-      value = "ap-northeast-2"
+      value = var.aws_region
     }
     environment_variable {
       name  = "ECR_REGISTRY"
-      value = "${data.aws_caller_identity.current.account_id}.dkr.ecr.ap-northeast-2.amazonaws.com"
+      value = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
     }
     environment_variable {
       name  = "EXECUTION_ROLE_ARN"
@@ -414,7 +307,7 @@ resource "aws_codepipeline" "main" {
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn    = "arn:aws:codeconnections:ap-northeast-2:${data.aws_caller_identity.current.account_id}:connection/${var.github_connection_uuid}"
+        ConnectionArn    = "arn:aws:codeconnections:${var.aws_region}:${data.aws_caller_identity.current.account_id}:connection/${var.github_connection_uuid}"
         FullRepositoryId = "${var.github_owner}/${var.github_repo_name}"
         BranchName       = var.deploy_branch
       }

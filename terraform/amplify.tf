@@ -37,7 +37,7 @@ resource "null_resource" "amplify_build_trigger" {
   }
 
   provisioner "local-exec" {
-    command = "aws amplify start-job --app-id ${aws_amplify_app.frontend.id} --branch-name ${var.deploy_branch} --job-type RELEASE --region ap-northeast-2 --profile ${var.aws_profile}"
+    command = "aws amplify start-job --app-id ${aws_amplify_app.frontend.id} --branch-name ${var.deploy_branch} --job-type RELEASE --region ${var.aws_region} --profile ${var.aws_profile}"
   }
 
   depends_on = [aws_amplify_branch.main]

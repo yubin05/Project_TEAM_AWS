@@ -160,3 +160,113 @@ resource "aws_security_group" "mysql" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+# ALB SG: VPC 내부(API Gateway VPC Link)에서 서비스 포트 허용
+resource "aws_security_group" "alb" {
+  name        = "ThreeTier-ALB-SG"
+  description = "Internal ALB Security Group"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-ALB-SG" }
+
+  ingress {
+    description = "HTTP from VPC (API Gateway VPC Link)"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "auth-service"
+    from_port   = 3001
+    to_port     = 3001
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "hotel-service"
+    from_port   = 3002
+    to_port     = 3002
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "booking-service"
+    from_port   = 3003
+    to_port     = 3003
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "review-service"
+    from_port   = 3004
+    to_port     = 3004
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  ingress {
+    description = "support-service"
+    from_port   = 3005
+    to_port     = 3005
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# ECS Tasks SG: ALB에서 서비스 포트(3001-3005) 허용
+resource "aws_security_group" "ecs_tasks" {
+  name        = "ThreeTier-ECS-Tasks-SG"
+  description = "ECS Fargate Tasks Security Group"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-ECS-Tasks-SG" }
+
+  ingress {
+    description     = "From ALB to service ports"
+    from_port       = 3001
+    to_port         = 3005
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# RDS SG: 백엔드 및 온프레미스 DB 서브넷에서 3306 허용
+resource "aws_security_group" "rds" {
+  name        = "ThreeTier-RDS-SG"
+  description = "Aurora MySQL Security Group"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-RDS-SG" }
+
+  ingress {
+    # 10.1.3.0/24: MySQL EC2(온프레미스 DB)에서 RDS 접근 허용 — DMS 마이그레이션 완료 후 제거
+    description = "MySQL from backend and on-premises DB subnet"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.2.0/24", "10.1.5.0/24", "10.1.3.0/24"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
