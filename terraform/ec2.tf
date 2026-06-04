@@ -52,8 +52,9 @@ EOF
 }
 
 # ── MySQL EC2 ─────────────────────────────────────────────────────────────────
-# Private IP: 10.1.3.10 | DMS 소스 — DMS 마이그레이션 완료 후 제거 예정
+# enable_migration = false 로 변경 후 apply 하면 자동 삭제
 resource "aws_instance" "mysql" {
+  count = var.enable_migration ? 1 : 0
   ami                    = local.ami_id
   instance_type          = "t3.micro"
   key_name               = var.key_name
@@ -77,7 +78,8 @@ dnf install -y git
 git clone --filter=blob:none --sparse https://github.com/${var.github_owner}/${var.github_repo_name}.git /opt/app
 cd /opt/app
 git sparse-checkout set database
-sudo bash database/scripts/mysql_install.sh
-bash database/scripts/run-seed.sh
+DB_PASSWORD="${var.db_password}" sudo -E bash database/scripts/mysql_install.sh
+MYSQL_PASSWORD="${var.db_password}" bash database/scripts/run-seed.sh
+touch /tmp/mysql_ready
 EOF
 }

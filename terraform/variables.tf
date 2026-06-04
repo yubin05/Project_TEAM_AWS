@@ -66,7 +66,13 @@ variable "github_connection_uuid" {
 }
 
 variable "deploy_branch" {
-  description = "CodePipeline/Amplify가 감지할 Git 브랜치 (개인 계정: dev, 팀 계정: main)"
+  description = "CodePipeline/Amplify가 감지할 Git 브랜치"
   type        = string
   default     = "main"
+}
+
+variable "enable_migration" {
+  description = "MySQL EC2 + DMS 리소스 활성화. 최초 배포 시 true, 마이그레이션 완료 후 false로 바꾸고 apply하면 자동 삭제"
+  type        = bool
+  default     = false
 }

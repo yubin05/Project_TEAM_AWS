@@ -146,6 +146,17 @@ resource "aws_security_group" "mysql" {
     cidr_blocks = ["10.1.2.0/24"]
   }
 
+  dynamic "ingress" {
+    for_each = var.enable_migration ? [1] : []
+    content {
+      description     = "DMS replication instance to MySQL EC2"
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [aws_security_group.dms[0].id]
+    }
+  }
+
   ingress {
     from_port   = -1
     to_port     = -1
@@ -255,12 +266,22 @@ resource "aws_security_group" "rds" {
   tags        = { Name = "ThreeTier-RDS-SG" }
 
   ingress {
-    # 10.1.3.0/24: MySQL EC2(온프레미스 DB)에서 RDS 접근 허용 — DMS 마이그레이션 완료 후 제거
     description = "MySQL from backend and on-premises DB subnet"
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = ["10.1.2.0/24", "10.1.5.0/24", "10.1.3.0/24"]
+    cidr_blocks = concat(["10.1.2.0/24", "10.1.5.0/24"], var.enable_migration ? ["10.1.3.0/24"] : [])
+  }
+
+  dynamic "ingress" {
+    for_each = var.enable_migration ? [1] : []
+    content {
+      description     = "DMS replication instance to Aurora MySQL"
+      from_port       = 3306
+      to_port         = 3306
+      protocol        = "tcp"
+      security_groups = [aws_security_group.dms[0].id]
+    }
   }
 
   egress {

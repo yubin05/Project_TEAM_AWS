@@ -4,8 +4,8 @@ output "nat_instance_public_ip" {
 }
 
 output "mysql_private_ip" {
-  description = "MySQL EC2 프라이빗 IP (DMS 소스)"
-  value       = aws_instance.mysql.private_ip
+  description = "MySQL EC2 프라이빗 IP (DMS 소스) — enable_migration = false 시 null"
+  value       = var.enable_migration ? aws_instance.mysql[0].private_ip : null
 }
 
 output "api_gateway_endpoint" {
