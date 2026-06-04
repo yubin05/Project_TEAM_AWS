@@ -201,6 +201,7 @@ phases:
           "cpu": "256",
           "memory": "512",
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "taskRoleArn": "$SUPPORT_TASK_ROLE_ARN",
           "containerDefinitions": [{
             "name": "support-service",
             "image": "$ECR_REGISTRY/support-service:$IMAGE_TAG",
