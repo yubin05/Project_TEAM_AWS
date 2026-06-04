@@ -6,6 +6,7 @@ applications:
         preBuild:
           commands:
             - echo "const API_BASE = '${API_URL}';" > public/js/config.js
+            - echo "const SUPPORT_BASE = '${API_URL}';" >> public/js/config.js
             - echo "const AZURE_MAPS_KEY = window.__AZURE_MAPS_KEY__ || '';" >> public/js/config.js
         build:
           commands:
