@@ -20,12 +20,30 @@ resource "aws_security_group" "dms" {
   }
 
   tags = { Name = "ThreeTier-DMS-SG" }
-
-  # destroy 순서 보장: mysql/rds SG에서 이 SG를 참조하는 ingress 규칙이
-  # 먼저 제거된 후 이 SG가 삭제되도록 역방향 의존성 설정
-  depends_on = [aws_security_group.mysql, aws_security_group.rds]
 }
 
+
+resource "aws_security_group_rule" "mysql_from_dms" {
+  count                    = var.enable_migration ? 1 : 0
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.dms[0].id
+  security_group_id        = aws_security_group.mysql.id
+  description              = "DMS replication instance to MySQL EC2"
+}
+
+resource "aws_security_group_rule" "rds_from_dms" {
+  count                    = var.enable_migration ? 1 : 0
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.dms[0].id
+  security_group_id        = aws_security_group.rds.id
+  description              = "DMS replication instance to Aurora MySQL"
+}
 
 resource "aws_dms_replication_subnet_group" "main" {
   count                                = var.enable_migration ? 1 : 0

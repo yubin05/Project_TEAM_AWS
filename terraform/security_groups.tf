@@ -146,17 +146,6 @@ resource "aws_security_group" "mysql" {
     cidr_blocks = ["10.1.2.0/24"]
   }
 
-  dynamic "ingress" {
-    for_each = var.enable_migration ? [1] : []
-    content {
-      description     = "DMS replication instance to MySQL EC2"
-      from_port       = 3306
-      to_port         = 3306
-      protocol        = "tcp"
-      security_groups = [aws_security_group.dms[0].id]
-    }
-  }
-
   ingress {
     from_port   = -1
     to_port     = -1
@@ -169,6 +158,10 @@ resource "aws_security_group" "mysql" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    ignore_changes = [ingress]
   }
 }
 
@@ -273,21 +266,14 @@ resource "aws_security_group" "rds" {
     cidr_blocks = concat(["10.1.2.0/24", "10.1.5.0/24"], var.enable_migration ? ["10.1.3.0/24"] : [])
   }
 
-  dynamic "ingress" {
-    for_each = var.enable_migration ? [1] : []
-    content {
-      description     = "DMS replication instance to Aurora MySQL"
-      from_port       = 3306
-      to_port         = 3306
-      protocol        = "tcp"
-      security_groups = [aws_security_group.dms[0].id]
-    }
-  }
-
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  lifecycle {
+    ignore_changes = [ingress]
   }
 }
