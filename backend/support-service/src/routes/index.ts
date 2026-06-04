@@ -1,10 +1,15 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
+import multer from 'multer';
+import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import pool from '../models/pool';
 import { config } from '../config';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 3 } });
+const s3 = config.s3.bucket ? new S3Client({ region: config.s3.region }) : null;
 
 function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const auth = req.headers['authorization'];
@@ -32,9 +37,31 @@ function adminMiddleware(req: Request, res: Response, next: NextFunction): void 
   });
 }
 
-// ── 문의 ───────────────────────────────────────────────────────────────────────
+async function uploadFilesToS3(inquiryId: string, files: Express.Multer.File[]) {
+  if (!s3 || files.length === 0) return [];
+  return Promise.all(files.map(async file => {
+    const key = `inquiries/${inquiryId}/${Date.now()}-${file.originalname}`;
+    await s3.send(new PutObjectCommand({
+      Bucket: config.s3.bucket,
+      Key: key,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    }));
+    return { name: file.originalname, key, size: file.size };
+  }));
+}
 
-router.post('/inquiries', authMiddleware, async (req: Request, res: Response) => {
+async function attachPresignedUrls(files: { name: string; key: string; size: number }[]) {
+  if (!s3 || files.length === 0) return files;
+  return Promise.all(files.map(async f => ({
+    ...f,
+    url: await getSignedUrl(s3, new GetObjectCommand({ Bucket: config.s3.bucket, Key: f.key }), { expiresIn: 3600 }),
+  })));
+}
+
+// ── 문의 ──────────────────────────────────────────────────────────────────────
+
+router.post('/inquiries', authMiddleware, upload.array('files', 3), async (req: Request, res: Response) => {
   const user = (req as any).user;
   const { type = 'general', title, content, booking_id } = req.body;
 
@@ -44,9 +71,11 @@ router.post('/inquiries', authMiddleware, async (req: Request, res: Response) =>
   }
 
   const id = uuidv4();
+  const uploadedFiles = await uploadFilesToS3(id, (req as any).files || []);
+
   await pool.execute(
-    'INSERT INTO inquiries (id, user_id, user_email, type, title, content, booking_id) VALUES (?,?,?,?,?,?,?)',
-    [id, user.id || user.userId, user.email, type, title.trim(), content.trim(), booking_id || null]
+    'INSERT INTO inquiries (id, user_id, user_email, type, title, content, booking_id, files) VALUES (?,?,?,?,?,?,?,?)',
+    [id, user.id || user.userId, user.email, type, title.trim(), content.trim(), booking_id || null, JSON.stringify(uploadedFiles)]
   );
 
   res.status(201).json({ success: true, message: '문의가 접수되었습니다.', data: { id } });
@@ -75,13 +104,16 @@ router.delete('/inquiries/:id', authMiddleware, async (req: Request, res: Respon
   res.json({ success: true, message: '문의가 삭제되었습니다.' });
 });
 
-// ── 관리자 문의 관리 ─────────────────────────────────────────────────────────────
+// ── 관리자 문의 관리 ───────────────────────────────────────────────────────────
 
 router.get('/admin/inquiries', adminMiddleware, async (_req: Request, res: Response) => {
-  const [rows] = await pool.execute(
-    'SELECT * FROM inquiries ORDER BY status ASC, created_at DESC'
-  );
-  res.json({ success: true, data: rows });
+  const [rows]: any = await pool.execute('SELECT * FROM inquiries ORDER BY status ASC, created_at DESC');
+  const inquiries = await Promise.all((rows as any[]).map(async (q: any) => {
+    let files: any[] = [];
+    try { files = JSON.parse(q.files || '[]'); } catch {}
+    return { ...q, files: await attachPresignedUrls(files) };
+  }));
+  res.json({ success: true, data: inquiries });
 });
 
 router.put('/admin/inquiries/:id/answer', adminMiddleware, async (req: Request, res: Response) => {

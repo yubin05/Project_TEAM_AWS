@@ -1249,6 +1249,10 @@ async function loadAdminInquiries() {
           <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:4px">${q.user_email || ''}</p>
           <strong>${q.title}</strong>
           <p style="margin-top:8px;white-space:pre-wrap">${q.content}</p>
+          ${q.files && q.files.length > 0 ? `
+          <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px">
+            ${q.files.map(f => `<a href="${f.url}" target="_blank" download="${f.name}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;font-size:0.8rem;color:var(--text-primary);text-decoration:none">📎 ${f.name} <span style="color:var(--text-light)">(${(f.size/1024).toFixed(0)}KB)</span></a>`).join('')}
+          </div>` : ''}
           ${q.answer ? `<div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--primary)"><strong>답변</strong><p style="margin-top:4px;white-space:pre-wrap">${q.answer}</p></div>` : ''}
           ${q.status !== 'answered' ? `
           <div style="margin-top:12px">
@@ -1679,7 +1683,20 @@ async function handleInquirySubmit(e) {
   };
 
   try {
-    await apiSupport('/inquiries', { method: 'POST', body: JSON.stringify(body) });
+    const formData = new FormData();
+    formData.append('type', body.type);
+    formData.append('title', body.title);
+    formData.append('content', body.content);
+    if (body.booking_id) formData.append('booking_id', body.booking_id);
+    const fileInput = document.getElementById('inquiry-files');
+    if (fileInput?.files) {
+      Array.from(fileInput.files).slice(0, 3).forEach(f => formData.append('files', f));
+    }
+    const headers = {};
+    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
+    const res = await fetch(`${SUPPORT_BASE}/inquiries`, { method: 'POST', headers, body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || '오류가 발생했습니다.');
     showToast('문의가 접수되었습니다.', 'success');
     e.target.reset();
     document.getElementById('file-list').innerHTML = '';

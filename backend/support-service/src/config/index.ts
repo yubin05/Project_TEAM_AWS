@@ -17,6 +17,10 @@ export const config = {
   cors: {
     origin: process.env.CORS_ORIGIN || '*',
   },
+  s3: {
+    bucket: process.env.S3_UPLOADS_BUCKET || '',
+    region: process.env.AWS_REGION || 'ap-northeast-2',
+  },
 };
 
 export async function loadSecrets(): Promise<void> {}
