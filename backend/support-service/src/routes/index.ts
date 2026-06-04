@@ -1,14 +1,12 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import jwt from 'jsonwebtoken';
-import multer from 'multer';
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import pool from '../models/pool';
 import { config } from '../config';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 3 } });
 const s3 = config.s3.bucket ? new S3Client({ region: config.s3.region }) : null;
 
 function authMiddleware(req: Request, res: Response, next: NextFunction): void {
@@ -37,18 +35,9 @@ function adminMiddleware(req: Request, res: Response, next: NextFunction): void 
   });
 }
 
-async function uploadFilesToS3(inquiryId: string, files: Express.Multer.File[]) {
-  if (!s3 || files.length === 0) return [];
-  return Promise.all(files.map(async file => {
-    const key = `inquiries/${inquiryId}/${Date.now()}-${file.originalname}`;
-    await s3.send(new PutObjectCommand({
-      Bucket: config.s3.bucket,
-      Key: key,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    }));
-    return { name: file.originalname, key, size: file.size };
-  }));
+async function generatePresignedPutUrl(key: string, contentType: string) {
+  if (!s3) return null;
+  return getSignedUrl(s3, new PutObjectCommand({ Bucket: config.s3.bucket, Key: key, ContentType: contentType }), { expiresIn: 300 });
 }
 
 async function attachPresignedUrls(files: { name: string; key: string; size: number }[]) {
@@ -61,9 +50,29 @@ async function attachPresignedUrls(files: { name: string; key: string; size: num
 
 // ── 문의 ──────────────────────────────────────────────────────────────────────
 
-router.post('/inquiries', authMiddleware, upload.array('files', 3), async (req: Request, res: Response) => {
+// 파일별 presigned PUT URL 발급 (프론트가 S3에 직접 업로드)
+router.post('/inquiries/presign', authMiddleware, async (req: Request, res: Response) => {
+  const { files } = req.body; // [{ name, type, size }]
+  if (!Array.isArray(files) || files.length === 0) {
+    res.status(400).json({ success: false, message: '파일 정보가 없습니다.' });
+    return;
+  }
+  if (!s3) {
+    res.status(503).json({ success: false, message: '파일 업로드를 사용할 수 없습니다.' });
+    return;
+  }
+  const tempId = uuidv4();
+  const presigned = await Promise.all(files.slice(0, 3).map(async (f: any) => {
+    const key = `inquiries/${tempId}/${Date.now()}-${f.name}`;
+    const uploadUrl = await generatePresignedPutUrl(key, f.type || 'application/octet-stream');
+    return { name: f.name, key, size: f.size, uploadUrl };
+  }));
+  res.json({ success: true, data: presigned });
+});
+
+router.post('/inquiries', authMiddleware, async (req: Request, res: Response) => {
   const user = (req as any).user;
-  const { type = 'general', title, content, booking_id } = req.body;
+  const { type = 'general', title, content, booking_id, files = [] } = req.body;
 
   if (!title?.trim() || !content?.trim()) {
     res.status(400).json({ success: false, message: '제목과 내용을 입력해주세요.' });
@@ -71,11 +80,11 @@ router.post('/inquiries', authMiddleware, upload.array('files', 3), async (req: 
   }
 
   const id = uuidv4();
-  const uploadedFiles = await uploadFilesToS3(id, (req as any).files || []);
+  const fileRecords = (files as any[]).map(({ name, key, size }: any) => ({ name, key, size }));
 
   await pool.execute(
     'INSERT INTO inquiries (id, user_id, user_email, type, title, content, booking_id, files) VALUES (?,?,?,?,?,?,?,?)',
-    [id, user.id || user.userId, user.email, type, title.trim(), content.trim(), booking_id || null, JSON.stringify(uploadedFiles)]
+    [id, user.id || user.userId, user.email, type, title.trim(), content.trim(), booking_id || null, JSON.stringify(fileRecords)]
   );
 
   res.status(201).json({ success: true, message: '문의가 접수되었습니다.', data: { id } });

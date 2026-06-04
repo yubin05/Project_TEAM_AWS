@@ -1683,20 +1683,23 @@ async function handleInquirySubmit(e) {
   };
 
   try {
-    const formData = new FormData();
-    formData.append('type', body.type);
-    formData.append('title', body.title);
-    formData.append('content', body.content);
-    if (body.booking_id) formData.append('booking_id', body.booking_id);
     const fileInput = document.getElementById('inquiry-files');
-    if (fileInput?.files) {
-      Array.from(fileInput.files).slice(0, 3).forEach(f => formData.append('files', f));
+    const selectedFiles = fileInput?.files ? Array.from(fileInput.files).slice(0, 3) : [];
+
+    // S3 presigned URL 발급 후 직접 업로드
+    let uploadedFiles = [];
+    if (selectedFiles.length > 0) {
+      const presignRes = await apiSupport('/inquiries/presign', {
+        method: 'POST',
+        body: JSON.stringify({ files: selectedFiles.map(f => ({ name: f.name, type: f.type, size: f.size })) }),
+      });
+      await Promise.all(presignRes.data.map(async (p, i) => {
+        await fetch(p.uploadUrl, { method: 'PUT', headers: { 'Content-Type': selectedFiles[i].type }, body: selectedFiles[i] });
+        uploadedFiles.push({ name: p.name, key: p.key, size: p.size });
+      }));
     }
-    const headers = {};
-    if (state.token) headers['Authorization'] = `Bearer ${state.token}`;
-    const res = await fetch(`${SUPPORT_BASE}/inquiries`, { method: 'POST', headers, body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || '오류가 발생했습니다.');
+
+    await apiSupport('/inquiries', { method: 'POST', body: JSON.stringify({ ...body, files: uploadedFiles }) });
     showToast('문의가 접수되었습니다.', 'success');
     e.target.reset();
     document.getElementById('file-list').innerHTML = '';
