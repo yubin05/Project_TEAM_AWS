@@ -175,6 +175,7 @@ function setupEventListeners() {
       switchAdminTab(tab.dataset.tab);
       if (tab.dataset.tab === 'bookings') loadAdminBookings();
       if (tab.dataset.tab === 'hotels') loadAdminHotels();
+      if (tab.dataset.tab === 'inquiries') loadAdminInquiries();
     });
   });
 
@@ -1222,6 +1223,59 @@ function switchAdminTab(tab) {
   document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
   document.querySelector(`.admin-tab[data-tab="${tab}"]`)?.classList.add('active');
   document.getElementById(`admin-tab-${tab}`)?.classList.add('active');
+}
+
+async function loadAdminInquiries() {
+  const container = document.getElementById('admin-inquiry-list');
+  container.innerHTML = '<div class="loading-spinner">문의 목록을 불러오는 중...</div>';
+  try {
+    const res = await apiSupport('/admin/inquiries');
+    const inquiries = res.data || [];
+    if (inquiries.length === 0) {
+      container.innerHTML = '<div class="empty-state">접수된 문의가 없습니다.</div>';
+      return;
+    }
+    const typeLabels = { general: '일반 문의', refund: '환불 요청', change: '예약 변경', complaint: '불편 신고', etc: '기타' };
+    container.innerHTML = inquiries.map(q => `
+      <div class="inquiry-card" id="admin-inquiry-${q.id}">
+        <div class="inquiry-card-header">
+          <span class="inquiry-type-badge">${typeLabels[q.type] || q.type}</span>
+          <span class="booking-status ${q.status === 'answered' ? 'status-confirmed' : 'status-pending'}">
+            ${q.status === 'answered' ? '답변 완료' : q.status === 'closed' ? '종료' : '접수됨'}
+          </span>
+          <span style="margin-left:auto;font-size:0.8rem;color:var(--text-light)">${new Date(q.created_at).toLocaleDateString('ko-KR')}</span>
+        </div>
+        <div class="inquiry-card-body">
+          <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:4px">${q.user_email || ''}</p>
+          <strong>${q.title}</strong>
+          <p style="margin-top:8px;white-space:pre-wrap">${q.content}</p>
+          ${q.answer ? `<div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border-radius:8px;border-left:3px solid var(--primary)"><strong>답변</strong><p style="margin-top:4px;white-space:pre-wrap">${q.answer}</p></div>` : ''}
+          ${q.status !== 'answered' ? `
+          <div style="margin-top:12px">
+            <textarea id="answer-${q.id}" rows="3" class="form-control" placeholder="답변을 입력하세요" style="width:100%;padding:10px;border:1px solid var(--border);border-radius:8px;resize:vertical"></textarea>
+            <button class="btn btn-primary" style="margin-top:8px" onclick="submitInquiryAnswer('${q.id}')">답변 등록</button>
+          </div>` : ''}
+        </div>
+      </div>
+    `).join('');
+  } catch {
+    container.innerHTML = '<div class="empty-state">문의 목록을 불러올 수 없습니다.</div>';
+  }
+}
+
+async function submitInquiryAnswer(inquiryId) {
+  const answer = document.getElementById(`answer-${inquiryId}`)?.value.trim();
+  if (!answer) { showToast('답변 내용을 입력해주세요.', 'error'); return; }
+  try {
+    await apiSupport(`/admin/inquiries/${inquiryId}/answer`, {
+      method: 'PUT',
+      body: JSON.stringify({ answer }),
+    });
+    showToast('답변이 등록되었습니다.', 'success');
+    loadAdminInquiries();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 async function loadAdminStats() {
