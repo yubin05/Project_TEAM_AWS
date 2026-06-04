@@ -1747,8 +1747,18 @@ function renderInquiryCard(q) {
 function handleFileSelect(files) {
   const listEl = document.getElementById('file-list');
   if (!files || files.length === 0) { listEl.innerHTML = ''; return; }
-  const max = 3;
-  const selected = Array.from(files).slice(0, max);
+
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  const selected = Array.from(files).slice(0, 3);
+  const oversized = selected.filter(f => f.size > MAX_SIZE);
+
+  if (oversized.length > 0) {
+    showToast(`파일 크기는 최대 10MB까지 허용됩니다. (${oversized.map(f => f.name).join(', ')})`, 'error');
+    document.getElementById('inquiry-files').value = '';
+    listEl.innerHTML = '';
+    return;
+  }
+
   listEl.innerHTML = selected.map(f => `
     <div class="file-item">
       <span class="file-name">📎 ${f.name}</span>
