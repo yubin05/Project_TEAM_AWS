@@ -24,3 +24,28 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
     max_age_seconds = 3600
   }
 }
+
+# ── MySQL EC2 user_data용 스크립트 (S3 VPC 엔드포인트로 다운로드) ──────────────
+resource "aws_s3_object" "mysql_install" {
+  count  = var.enable_migration ? 1 : 0
+  bucket = aws_s3_bucket.uploads.bucket
+  key    = "database/mysql_install.sh"
+  source = "${path.module}/../database/scripts/mysql_install.sh"
+  etag   = filemd5("${path.module}/../database/scripts/mysql_install.sh")
+}
+
+resource "aws_s3_object" "run_seed" {
+  count  = var.enable_migration ? 1 : 0
+  bucket = aws_s3_bucket.uploads.bucket
+  key    = "database/run-seed.sh"
+  source = "${path.module}/../database/scripts/run-seed.sh"
+  etag   = filemd5("${path.module}/../database/scripts/run-seed.sh")
+}
+
+resource "aws_s3_object" "seed_sql" {
+  count  = var.enable_migration ? 1 : 0
+  bucket = aws_s3_bucket.uploads.bucket
+  key    = "database/seed.sql"
+  source = "${path.module}/../database/scripts/seed.sql"
+  etag   = filemd5("${path.module}/../database/scripts/seed.sql")
+}

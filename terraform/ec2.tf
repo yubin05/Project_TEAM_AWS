@@ -24,12 +24,15 @@ export PS1="[\[\e[1;31m\]\u\[\e[m\]@\[\e[1;32m\]\h\[\e[m\]: \[\e[1;36m\]\w\[\e[m
 EOT
 source /etc/profile
 set -euxo pipefail
-dnf install -y git
-git clone --filter=blob:none --sparse https://github.com/${var.github_owner}/${var.github_repo_name}.git /opt/app
-cd /opt/app
-git sparse-checkout set database
-DB_PASSWORD="${var.db_password}" sudo -E bash database/scripts/mysql_install.sh
-MYSQL_PASSWORD="${var.db_password}" bash database/scripts/run-seed.sh
+
+# S3에서 스크립트 다운로드 (S3 VPC 엔드포인트 사용 — 외부 인터넷 불필요)
+aws s3 cp s3://${aws_s3_bucket.uploads.bucket}/database/mysql_install.sh /tmp/mysql_install.sh
+aws s3 cp s3://${aws_s3_bucket.uploads.bucket}/database/run-seed.sh /tmp/run-seed.sh
+aws s3 cp s3://${aws_s3_bucket.uploads.bucket}/database/seed.sql /tmp/seed.sql
+chmod +x /tmp/mysql_install.sh /tmp/run-seed.sh
+
+DB_PASSWORD="${var.db_password}" bash /tmp/mysql_install.sh
+MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD="${var.db_password}" bash /tmp/run-seed.sh
 touch /tmp/mysql_ready
 EOF
 }

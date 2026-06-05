@@ -108,7 +108,7 @@ resource "aws_dms_endpoint" "source" {
   count         = var.enable_migration ? 1 : 0
   endpoint_id   = "source-mysql-ec2"
   endpoint_type = "source"
-  engine_name   = "mysql"
+  engine_name   = "mariadb"
   server_name   = aws_instance.mysql[0].private_ip
   depends_on    = [null_resource.wait_for_mysql]
   port          = 3306

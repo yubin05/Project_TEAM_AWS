@@ -25,6 +25,18 @@ resource "aws_iam_instance_profile" "ssm" {
   role = aws_iam_role.ssm.name
 }
 
+resource "aws_iam_role_policy" "ssm_s3_read" {
+  role = aws_iam_role.ssm.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:GetObject"]
+      Resource = "${aws_s3_bucket.uploads.arn}/database/*"
+    }]
+  })
+}
+
 # ── ECS ───────────────────────────────────────────────────────────────────────
 resource "aws_iam_role" "ecs_task_support" {
   name = "ThreeTier-ECS-Task-Support-Role"
