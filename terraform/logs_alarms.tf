@@ -13,7 +13,7 @@ resource "aws_sns_topic" "alerts" {
 resource "aws_sns_topic_subscription" "email_alert" {
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
-  endpoint  = "shw504@gmail.com"
+  endpoint  = var.alert_email
 }
 
 
@@ -174,4 +174,52 @@ resource "aws_cloudwatch_metric_alarm" "rating_queue_depth" {
   treat_missing_data = "notBreaching"
 
   tags = { Name = "SQS-RatingQueue-Depth-High" }
+}
+
+
+# ── booking-queue 메시지 체류 시간 알람 ──────────────────────────────────────
+resource "aws_cloudwatch_metric_alarm" "sqs_booking_age" {
+  alarm_name          = "SQS-BookingQueue-OldestMessageAge"
+  alarm_description   = "booking-queue 최오래된 메시지 5분 초과 — 예약 처리 지연"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateAgeOfOldestMessage"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 300
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    QueueName = aws_sqs_queue.booking_queue.name
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
+  tags = { Name = "SQS-BookingQueue-OldestMessageAge" }
+}
+
+
+# ── rating-queue 메시지 체류 시간 알람 ───────────────────────────────────────
+resource "aws_cloudwatch_metric_alarm" "sqs_rating_age" {
+  alarm_name          = "SQS-RatingQueue-OldestMessageAge"
+  alarm_description   = "rating-queue 최오래된 메시지 5분 초과 — 평점 처리 지연"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ApproximateAgeOfOldestMessage"
+  namespace           = "AWS/SQS"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 300
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    QueueName = aws_sqs_queue.rating_queue.name
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
+  tags = { Name = "SQS-RatingQueue-OldestMessageAge" }
 }
