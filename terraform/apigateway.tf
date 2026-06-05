@@ -266,5 +266,10 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.main.id
   name        = "$default"
   auto_deploy = true
-  tags        = { Name = "ThreeTier-API-Stage" }
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.apigateway.arn
+  }
+
+  tags = { Name = "ThreeTier-API-Stage" }
 }
