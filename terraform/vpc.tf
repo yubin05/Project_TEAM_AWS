@@ -12,7 +12,7 @@ resource "aws_internet_gateway" "main" {
 }
 
 # ── 서브넷 ──────────────────────────────────────────────────────────────────
-# 퍼블릭: Frontend EC2(10.1.1.10), NAT Instance(10.1.1.100)
+# 퍼블릭: Frontend EC2(10.1.1.10)
 resource "aws_subnet" "public" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = "10.1.1.0/24"
@@ -53,25 +53,9 @@ resource "aws_route_table" "private_backend" {
   tags   = { Name = "ThreeTier-PrivateBackendRT" }
 }
 
-# 백엔드 → NAT Instance (git clone, Docker pull 등 외부 통신)
-resource "aws_route" "private_backend_nat" {
-  route_table_id         = aws_route_table.private_backend.id
-  destination_cidr_block = "0.0.0.0/0"
-  network_interface_id   = aws_instance.nat.primary_network_interface_id
-  depends_on             = [aws_instance.nat]
-}
-
 resource "aws_route_table" "private_db" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "ThreeTier-PrivateDBRT" }
-}
-
-# DB → NAT Instance (mysql_install.sh, run-seed.sh 등 외부 통신)
-resource "aws_route" "private_db_nat" {
-  route_table_id         = aws_route_table.private_db.id
-  destination_cidr_block = "0.0.0.0/0"
-  network_interface_id   = aws_instance.nat.primary_network_interface_id
-  depends_on             = [aws_instance.nat]
 }
 
 # ── 서브넷 - RT 연결 ──────────────────────────────────────────────────────────

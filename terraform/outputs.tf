@@ -1,8 +1,3 @@
-output "nat_instance_public_ip" {
-  description = "NAT Instance 퍼블릭 IP"
-  value       = aws_eip.nat.public_ip
-}
-
 output "mysql_private_ip" {
   description = "MySQL EC2 프라이빗 IP (DMS 소스) — enable_migration = false 시 null"
   value       = var.enable_migration ? aws_instance.mysql[0].private_ip : null
