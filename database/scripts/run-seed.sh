@@ -1,42 +1,38 @@
 #!/bin/bash
 # ============================================================
 # seed 실행 스크립트
-# 사용법: bash database/scripts/run-seed.sh
+# 사용법:
+#   Aurora 직접 주입:
+#     MYSQL_HOST=<Aurora엔드포인트> MYSQL_PASSWORD=<비밀번호> bash database/scripts/run-seed.sh
+#   MySQL/MariaDB EC2 로컬:
+#     MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD=<비밀번호> bash /tmp/run-seed.sh
 # ============================================================
 
 set -e
 
-MYSQL_HOST="${MYSQL_HOST:-127.0.0.1}"
+MYSQL_HOST="${MYSQL_HOST:?MYSQL_HOST 환경변수를 지정해주세요 (Aurora 엔드포인트 또는 127.0.0.1)}"
 MYSQL_PORT="${MYSQL_PORT:-3306}"
-MYSQL_USER="${MYSQL_USER:-root}"
-MYSQL_PASSWORD="${MYSQL_PASSWORD:-P@ssw0rd}"
+MYSQL_USER="${MYSQL_USER:-admin}"
+MYSQL_PASSWORD="${MYSQL_PASSWORD:?MYSQL_PASSWORD 환경변수를 지정해주세요}"
 SEED_PASSWORD="${SEED_PASSWORD:-password123}"
 
-# node / npm 없으면 설치
-if ! command -v node &> /dev/null; then
-  echo "▶ Node.js 설치 중..."
-  sudo dnf install -y nodejs
-fi
-
-# bcryptjs 없으면 설치
-if [ ! -d "/tmp/bcrypt_seed/node_modules/bcryptjs" ]; then
-  echo "▶ bcryptjs 설치 중..."
-  mkdir -p /tmp/bcrypt_seed
-  cd /tmp/bcrypt_seed
-  npm install bcryptjs --save 2>/dev/null
-  cd -
+# python3-bcrypt 설치 (AL2023 repo — 외부 인터넷 불필요)
+if ! python3 -c "import bcrypt" 2>/dev/null; then
+  echo "▶ python3-bcrypt 설치 중..."
+  sudo dnf install -y python3-bcrypt 2>/dev/null || sudo pip3 install bcrypt
 fi
 
 echo "▶ bcrypt 해시 생성 중..."
-BCRYPT_HASH=$(node -e "
-const b = require('/tmp/bcrypt_seed/node_modules/bcryptjs');
-b.hash('${SEED_PASSWORD}', 10).then(h => process.stdout.write(h));
+BCRYPT_HASH=$(python3 -c "
+import bcrypt
+h = bcrypt.hashpw('${SEED_PASSWORD}'.encode(), bcrypt.gensalt(10)).decode()
+print(h)
 ")
 echo "✅ 해시 생성 완료"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-echo "▶ seed.sql 실행 중..."
+echo "▶ seed.sql 실행 중... (host: $MYSQL_HOST)"
 sed "s/__BCRYPT_HASH__/${BCRYPT_HASH//\//\\/}/g" "$SCRIPT_DIR/seed.sql" | \
   mysql -h "$MYSQL_HOST" -P "$MYSQL_PORT" -u "$MYSQL_USER" -p"$MYSQL_PASSWORD"
 
