@@ -35,15 +35,52 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   bucket = aws_s3_bucket.logs.id
 
   rule {
-    id     = "log-lifecycle"
+    id     = "vpc-flow-logs-lifecycle"
     status = "Enabled"
-    filter {}
-
+    filter { prefix = "vpc-flow-logs/" }
     transition {
       days          = 30
       storage_class = "GLACIER"
     }
+    expiration {
+      days = 365
+    }
+  }
 
+  rule {
+    id     = "cloudtrail-lifecycle"
+    status = "Enabled"
+    filter { prefix = "cloudtrail/" }
+    transition {
+      days          = 30
+      storage_class = "GLACIER"
+    }
+    expiration {
+      days = 365
+    }
+  }
+
+  rule {
+    id     = "alb-access-logs-lifecycle"
+    status = "Enabled"
+    filter { prefix = "alb-access-logs/" }
+    transition {
+      days          = 30
+      storage_class = "GLACIER"
+    }
+    expiration {
+      days = 365
+    }
+  }
+
+  rule {
+    id     = "cloudwatch-export-lifecycle"
+    status = "Enabled"
+    filter { prefix = "cloudwatch-export/" }
+    transition {
+      days          = 30
+      storage_class = "GLACIER"
+    }
     expiration {
       days = 365
     }
@@ -53,9 +90,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "logs" {
   rule {
     id     = "athena-results-cleanup"
     status = "Enabled"
-    filter {
-      prefix = "athena-results/"
-    }
+    filter { prefix = "athena-results/" }
     expiration {
       days = 7
     }
