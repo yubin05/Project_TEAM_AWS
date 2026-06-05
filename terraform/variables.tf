@@ -64,3 +64,15 @@ variable "github_connection_uuid" {
   description = "CodeConnections GitHub 연결 UUID (콘솔 → CodePipeline → Settings → Connections에서 확인)"
   type        = string
 }
+
+variable "deploy_branch" {
+  description = "CodePipeline/Amplify가 감지할 Git 브랜치"
+  type        = string
+  default     = "main"
+}
+
+variable "enable_migration" {
+  description = "MySQL EC2 + DMS 리소스 활성화. 최초 배포 시 true, 마이그레이션 완료 후 false로 바꾸고 apply하면 자동 삭제"
+  type        = bool
+  default     = false
+}

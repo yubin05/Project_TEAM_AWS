@@ -29,3 +29,11 @@ resource "aws_ecr_repository" "review" {
   image_scanning_configuration { scan_on_push = true }
   tags = { Name = "review-service" }
 }
+
+resource "aws_ecr_repository" "support" {
+  name                 = "support-service"
+  image_tag_mutability = "IMMUTABLE"
+  force_delete         = true
+  image_scanning_configuration { scan_on_push = true }
+  tags = { Name = "support-service" }
+}

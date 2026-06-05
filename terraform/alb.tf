@@ -1,56 +1,3 @@
-resource "aws_security_group" "alb" {
-  name        = "ThreeTier-ALB-SG"
-  description = "Internal ALB Security Group"
-  vpc_id      = aws_vpc.main.id
-  tags        = { Name = "ThreeTier-ALB-SG" }
-
-  ingress {
-    description = "HTTP from VPC (API Gateway VPC Link)"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  ingress {
-    description = "auth-service"
-    from_port   = 3001
-    to_port     = 3001
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  ingress {
-    description = "hotel-service"
-    from_port   = 3002
-    to_port     = 3002
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  ingress {
-    description = "booking-service"
-    from_port   = 3003
-    to_port     = 3003
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  ingress {
-    description = "review-service"
-    from_port   = 3004
-    to_port     = 3004
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
 
 # ── Internal ALB ─────────────────────────────────────────────────────────────
 resource "aws_lb" "internal" {
@@ -131,6 +78,21 @@ resource "aws_lb_target_group" "review" {
   tags = { Name = "ThreeTier-Review-TG" }
 }
 
+resource "aws_lb_target_group" "support" {
+  name        = "ThreeTier-Support-TG"
+  port        = 3005
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Support-TG" }
+}
+
 # ── Green Target Groups (Blue/Green 배포용) ───────────────────────────────────
 resource "aws_lb_target_group" "auth_green" {
   name        = "ThreeTier-Auth-TG-Green"
@@ -192,6 +154,21 @@ resource "aws_lb_target_group" "review_green" {
   tags = { Name = "ThreeTier-Review-TG-Green" }
 }
 
+resource "aws_lb_target_group" "support_green" {
+  name        = "ThreeTier-Support-TG-Green"
+  port        = 3005
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+  health_check {
+    path                = "/health"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+  tags = { Name = "ThreeTier-Support-TG-Green" }
+}
+
 # ── 서비스별 리스너 (CodeDeploy Blue/Green이 리스너 단위로 TG 전환) ────────────
 # lifecycle ignore_changes = [default_action] — CodeDeploy가 TG 전환 후 terraform이 덮어쓰지 않도록
 
@@ -241,6 +218,19 @@ resource "aws_lb_listener" "review" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.review.arn
+  }
+  lifecycle {
+    ignore_changes = [default_action]
+  }
+}
+
+resource "aws_lb_listener" "support" {
+  load_balancer_arn = aws_lb.internal.arn
+  port              = 3005
+  protocol          = "HTTP"
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.support.arn
   }
   lifecycle {
     ignore_changes = [default_action]

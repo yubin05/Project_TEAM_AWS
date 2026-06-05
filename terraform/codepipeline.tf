@@ -1,22 +1,4 @@
 
-# ── CodeDeploy IAM 역할 ───────────────────────────────────────────────────────
-resource "aws_iam_role" "codedeploy" {
-  name = "ThreeTier-CodeDeploy-ECS-Role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "codedeploy.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "codedeploy" {
-  role       = aws_iam_role.codedeploy.name
-  policy_arn = "arn:aws:iam::aws:policy/AWSCodeDeployRoleForECS"
-}
-
 # ── CodeDeploy 앱 ─────────────────────────────────────────────────────────────
 resource "aws_codedeploy_app" "main" {
   compute_platform = "ECS"
@@ -172,56 +154,41 @@ resource "aws_codedeploy_deployment_group" "review" {
   }
 }
 
-# ── CodePipeline IAM 역할 ─────────────────────────────────────────────────────
-resource "aws_iam_role" "codepipeline" {
-  name = "ThreeTier-CodePipeline-Role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "codepipeline.amazonaws.com" }
-    }]
-  })
-}
+resource "aws_codedeploy_deployment_group" "support" {
+  app_name               = aws_codedeploy_app.main.name
+  deployment_group_name  = "support-service-deploy-group"
+  deployment_config_name = "CodeDeployDefault.ECSAllAtOnce"
+  service_role_arn       = aws_iam_role.codedeploy.arn
 
-resource "aws_iam_role_policy" "codepipeline" {
-  role = aws_iam_role.codepipeline.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["s3:*"]
-        Resource = ["${aws_s3_bucket.pipeline_artifacts.arn}", "${aws_s3_bucket.pipeline_artifacts.arn}/*"]
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["codebuild:StartBuild", "codebuild:BatchGetBuilds"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["codedeploy:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["ecs:*"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["iam:PassRole"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["codestar-connections:UseConnection"]
-        Resource = "*"
+  blue_green_deployment_config {
+    deployment_ready_option {
+      action_on_timeout = "CONTINUE_DEPLOYMENT"
+    }
+    terminate_blue_instances_on_deployment_success {
+      action                           = "TERMINATE"
+      termination_wait_time_in_minutes = 0
+    }
+  }
+
+  deployment_style {
+    deployment_option = "WITH_TRAFFIC_CONTROL"
+    deployment_type   = "BLUE_GREEN"
+  }
+
+  ecs_service {
+    cluster_name = aws_ecs_cluster.main.name
+    service_name = aws_ecs_service.support.name
+  }
+
+  load_balancer_info {
+    target_group_pair_info {
+      prod_traffic_route {
+        listener_arns = [aws_lb_listener.support.arn]
       }
-    ]
-  })
+      target_group { name = aws_lb_target_group.support.name }
+      target_group { name = aws_lb_target_group.support_green.name }
+    }
+  }
 }
 
 # ── S3 아티팩트 버킷 ──────────────────────────────────────────────────────────
@@ -243,43 +210,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "pipeline_artifacts" {
 
 data "aws_caller_identity" "current" {}
 
-# ── CodeBuild IAM 역할 ────────────────────────────────────────────────────────
-resource "aws_iam_role" "codebuild" {
-  name = "ThreeTier-CodeBuild-Role"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Action    = "sts:AssumeRole"
-      Effect    = "Allow"
-      Principal = { Service = "codebuild.amazonaws.com" }
-    }]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "codebuild_ecr" {
-  role       = aws_iam_role.codebuild.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser"
-}
-
-resource "aws_iam_role_policy" "codebuild" {
-  role = aws_iam_role.codebuild.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-        Resource = "*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject", "s3:PutObject"]
-        Resource = "${aws_s3_bucket.pipeline_artifacts.arn}/*"
-      }
-    ]
-  })
-}
-
 # ── CodeBuild 프로젝트 ────────────────────────────────────────────────────────
 resource "aws_codebuild_project" "main" {
   name          = "ThreeTier-Build"
@@ -300,11 +230,11 @@ resource "aws_codebuild_project" "main" {
 
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
-      value = "ap-northeast-2"
+      value = var.aws_region
     }
     environment_variable {
       name  = "ECR_REGISTRY"
-      value = "${data.aws_caller_identity.current.account_id}.dkr.ecr.ap-northeast-2.amazonaws.com"
+      value = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
     }
     environment_variable {
       name  = "EXECUTION_ROLE_ARN"
@@ -332,6 +262,14 @@ resource "aws_codebuild_project" "main" {
     environment_variable {
       name  = "ALB_DNS"
       value = aws_lb.internal.dns_name
+    }
+    environment_variable {
+      name  = "S3_UPLOADS_BUCKET"
+      value = aws_s3_bucket.uploads.id
+    }
+    environment_variable {
+      name  = "SUPPORT_TASK_ROLE_ARN"
+      value = aws_iam_role.ecs_task_support.arn
     }
   }
 
@@ -361,7 +299,7 @@ resource "aws_codepipeline" "main" {
     git_configuration {
       source_action_name = "Source"
       push {
-        branches { includes = ["main"] }
+        branches { includes = [var.deploy_branch] }
         file_paths { includes = ["backend/**"] }
       }
     }
@@ -377,9 +315,9 @@ resource "aws_codepipeline" "main" {
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn    = "arn:aws:codeconnections:ap-northeast-2:${data.aws_caller_identity.current.account_id}:connection/${var.github_connection_uuid}"
+        ConnectionArn    = "arn:aws:codeconnections:${var.aws_region}:${data.aws_caller_identity.current.account_id}:connection/${var.github_connection_uuid}"
         FullRepositoryId = "${var.github_owner}/${var.github_repo_name}"
-        BranchName       = "main"
+        BranchName       = var.deploy_branch
       }
     }
   }
@@ -472,6 +410,24 @@ resource "aws_codepipeline" "main" {
         TaskDefinitionTemplatePath     ="review-service/taskdef.json"
         AppSpecTemplateArtifact        = "build_output"
         AppSpecTemplatePath            ="review-service/appspec.yaml"
+      }
+    }
+
+    action {
+      name            = "Deploy-Support"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeployToECS"
+      version         = "1"
+      run_order       = 1
+      input_artifacts = ["build_output"]
+      configuration = {
+        ApplicationName                = aws_codedeploy_app.main.name
+        DeploymentGroupName            = aws_codedeploy_deployment_group.support.deployment_group_name
+        TaskDefinitionTemplateArtifact = "build_output"
+        TaskDefinitionTemplatePath     ="support-service/taskdef.json"
+        AppSpecTemplateArtifact        = "build_output"
+        AppSpecTemplatePath            ="support-service/appspec.yaml"
       }
     }
   }

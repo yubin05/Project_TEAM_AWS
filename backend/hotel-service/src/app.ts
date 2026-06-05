@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { config, loadSecrets } from './config';
-import { initializeDatabase } from './models/database';
 import { startSQSConsumer } from './services/sqsConsumer';
 import router from './routes';
 import logger from './utils/logger';
@@ -23,7 +22,6 @@ app.get('/health', (_req, res) => {
 
 async function bootstrap() {
   await loadSecrets();
-  await initializeDatabase();
   startSQSConsumer().catch(err => logger.error('SQS consumer failed', { err }));
   app.listen(config.port, () => {
     logger.info('hotel-service started', { port: config.port, mode: config.mode });

@@ -16,17 +16,17 @@ app.use(morgan('combined', {
 app.use('/', router);
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'auth-service', mode: config.mode });
+  res.json({ status: 'ok', service: 'support-service', mode: config.mode });
 });
 
 async function bootstrap() {
   await loadSecrets();
   app.listen(config.port, () => {
-    logger.info('auth-service started', { port: config.port, mode: config.mode });
+    logger.info('support-service started', { port: config.port, mode: config.mode });
   });
 }
 
 bootstrap().catch(err => {
-  logger.error('Failed to start auth-service', { err });
+  logger.error('Failed to start support-service', { err });
   process.exit(1);
 });

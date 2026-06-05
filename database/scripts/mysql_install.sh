@@ -27,17 +27,19 @@ EOT
 systemctl enable --now mysqld
 chgrp ec2-user /var/log/mysqld.log
 
+DB_PASSWORD="${DB_PASSWORD:-P@ssw0rd}"
+
 TEMP_PW=$(grep 'temporary password' /var/log/mysqld.log | awk '{print $NF}')
 mysql --connect-expired-password -u root -p$TEMP_PW <<EOT
-ALTER USER 'root'@'localhost' IDENTIFIED BY 'P@ssw0rd';
-CREATE USER 'root'@'%' IDENTIFIED BY 'P@ssw0rd';
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER 'root'@'%' IDENTIFIED BY '${DB_PASSWORD}';
 DELETE FROM mysql.user WHERE User='';
 DROP DATABASE IF EXISTS test;
 DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
 FLUSH PRIVILEGES;
 EOT
-mysql -u root -p'P@ssw0rd' <<EOT
-CREATE USER user1@'%' IDENTIFIED BY 'P@ssw0rd';
+mysql -u root -p"${DB_PASSWORD}" <<EOT
+CREATE USER user1@'%' IDENTIFIED BY '${DB_PASSWORD}';
 GRANT ALL PRIVILEGES ON *.* TO user1@'%' WITH grant option;
 FLUSH PRIVILEGES;
 EOT

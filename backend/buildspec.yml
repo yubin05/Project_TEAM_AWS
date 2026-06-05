@@ -12,27 +12,58 @@ phases:
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=fallback}
+      - |
+        # 서비스 디렉토리 변경 감지 → 변경 시 현재 커밋 태그, 미변경 시 ECR 최신 태그 사용
+        latest_ecr_tag() {
+          aws ecr describe-images --region $AWS_DEFAULT_REGION \
+            --repository-name "$1" \
+            --query 'sort_by(imageDetails,&imagePushedAt)[-1].imageTags[0]' \
+            --output text 2>/dev/null || echo "$IMAGE_TAG"
+        }
+        resolve_tag() {
+          local svc=$1
+          # HEAD~1 없으면(첫 커밋) 무조건 빌드
+          if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+            echo "$IMAGE_TAG"; return
+          fi
+          if git diff --name-only HEAD~1 HEAD -- "backend/$svc/" | grep -q .; then
+            echo "$IMAGE_TAG"
+          else
+            latest_ecr_tag "$svc"
+          fi
+        }
+        printf "export AUTH_TAG=%s\nexport HOTEL_TAG=%s\nexport BOOKING_TAG=%s\nexport REVIEW_TAG=%s\nexport SUPPORT_TAG=%s\n" \
+          "$(resolve_tag auth-service)" \
+          "$(resolve_tag hotel-service)" \
+          "$(resolve_tag booking-service)" \
+          "$(resolve_tag review-service)" \
+          "$(resolve_tag support-service)" > /tmp/svc_tags.sh
+      - source /tmp/svc_tags.sh
+      - echo "auth=$AUTH_TAG hotel=$HOTEL_TAG booking=$BOOKING_TAG review=$REVIEW_TAG support=$SUPPORT_TAG"
 
   build:
     commands:
-      - docker build -t $ECR_REGISTRY/auth-service:$IMAGE_TAG ./backend/auth-service
-      - docker build -t $ECR_REGISTRY/hotel-service:$IMAGE_TAG ./backend/hotel-service
-      - docker build -t $ECR_REGISTRY/booking-service:$IMAGE_TAG ./backend/booking-service
-      - docker build -t $ECR_REGISTRY/review-service:$IMAGE_TAG ./backend/review-service
+      - '[ "$AUTH_TAG"    = "$IMAGE_TAG" ] && docker build -t $ECR_REGISTRY/auth-service:$IMAGE_TAG    ./backend/auth-service    || echo "auth-service: 변경 없음, 스킵"'
+      - '[ "$HOTEL_TAG"   = "$IMAGE_TAG" ] && docker build -t $ECR_REGISTRY/hotel-service:$IMAGE_TAG   ./backend/hotel-service   || echo "hotel-service: 변경 없음, 스킵"'
+      - '[ "$BOOKING_TAG" = "$IMAGE_TAG" ] && docker build -t $ECR_REGISTRY/booking-service:$IMAGE_TAG ./backend/booking-service || echo "booking-service: 변경 없음, 스킵"'
+      - '[ "$REVIEW_TAG"  = "$IMAGE_TAG" ] && docker build -t $ECR_REGISTRY/review-service:$IMAGE_TAG  ./backend/review-service  || echo "review-service: 변경 없음, 스킵"'
+      - '[ "$SUPPORT_TAG" = "$IMAGE_TAG" ] && docker build -t $ECR_REGISTRY/support-service:$IMAGE_TAG ./backend/support-service || echo "support-service: 변경 없음, 스킵"'
 
   post_build:
     commands:
-      - docker push $ECR_REGISTRY/auth-service:$IMAGE_TAG
-      - docker push $ECR_REGISTRY/hotel-service:$IMAGE_TAG
-      - docker push $ECR_REGISTRY/booking-service:$IMAGE_TAG
-      - docker push $ECR_REGISTRY/review-service:$IMAGE_TAG
+      - '[ "$AUTH_TAG"    = "$IMAGE_TAG" ] && docker push $ECR_REGISTRY/auth-service:$IMAGE_TAG    || echo "auth-service: 스킵"'
+      - '[ "$HOTEL_TAG"   = "$IMAGE_TAG" ] && docker push $ECR_REGISTRY/hotel-service:$IMAGE_TAG   || echo "hotel-service: 스킵"'
+      - '[ "$BOOKING_TAG" = "$IMAGE_TAG" ] && docker push $ECR_REGISTRY/booking-service:$IMAGE_TAG || echo "booking-service: 스킵"'
+      - '[ "$REVIEW_TAG"  = "$IMAGE_TAG" ] && docker push $ECR_REGISTRY/review-service:$IMAGE_TAG  || echo "review-service: 스킵"'
+      - '[ "$SUPPORT_TAG" = "$IMAGE_TAG" ] && docker push $ECR_REGISTRY/support-service:$IMAGE_TAG || echo "support-service: 스킵"'
 
       - |
-        printf '[{"name":"auth-service","imageUri":"%s"},{"name":"hotel-service","imageUri":"%s"},{"name":"booking-service","imageUri":"%s"},{"name":"review-service","imageUri":"%s"}]' \
-          $ECR_REGISTRY/auth-service:$IMAGE_TAG \
-          $ECR_REGISTRY/hotel-service:$IMAGE_TAG \
-          $ECR_REGISTRY/booking-service:$IMAGE_TAG \
-          $ECR_REGISTRY/review-service:$IMAGE_TAG > backend/imagedefinitions.json
+        printf '[{"name":"auth-service","imageUri":"%s"},{"name":"hotel-service","imageUri":"%s"},{"name":"booking-service","imageUri":"%s"},{"name":"review-service","imageUri":"%s"},{"name":"support-service","imageUri":"%s"}]' \
+          $ECR_REGISTRY/auth-service:$AUTH_TAG \
+          $ECR_REGISTRY/hotel-service:$HOTEL_TAG \
+          $ECR_REGISTRY/booking-service:$BOOKING_TAG \
+          $ECR_REGISTRY/review-service:$REVIEW_TAG \
+          $ECR_REGISTRY/support-service:$SUPPORT_TAG > backend/imagedefinitions.json
 
       - |
         cat > backend/auth-service/taskdef.json << EOF
@@ -45,7 +76,7 @@ phases:
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
           "containerDefinitions": [{
             "name": "auth-service",
-            "image": "$ECR_REGISTRY/auth-service:$IMAGE_TAG",
+            "image": "$ECR_REGISTRY/auth-service:$AUTH_TAG",
             "portMappings": [{ "containerPort": 3001, "protocol": "tcp" }],
             "environment": [
               { "name": "APP_MODE",        "value": "local" },
@@ -57,7 +88,7 @@ phases:
               { "name": "DB_NAME",         "value": "auth_db" },
               { "name": "JWT_SECRET",      "value": "$JWT_SECRET" },
               { "name": "INTERNAL_SECRET", "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",      "value": "ap-northeast-2" }
+              { "name": "AWS_REGION",      "value": "$AWS_DEFAULT_REGION" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -82,7 +113,7 @@ phases:
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
           "containerDefinitions": [{
             "name": "hotel-service",
-            "image": "$ECR_REGISTRY/hotel-service:$IMAGE_TAG",
+            "image": "$ECR_REGISTRY/hotel-service:$HOTEL_TAG",
             "portMappings": [{ "containerPort": 3002, "protocol": "tcp" }],
             "environment": [
               { "name": "APP_MODE",            "value": "local" },
@@ -94,7 +125,7 @@ phases:
               { "name": "DB_NAME",             "value": "hotel_db" },
               { "name": "JWT_SECRET",          "value": "$JWT_SECRET" },
               { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",          "value": "ap-northeast-2" },
+              { "name": "AWS_REGION",          "value": "$AWS_DEFAULT_REGION" },
               { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
               { "name": "REVIEW_SERVICE_URL",  "value": "http://$ALB_DNS" }
             ],
@@ -121,7 +152,7 @@ phases:
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
           "containerDefinitions": [{
             "name": "booking-service",
-            "image": "$ECR_REGISTRY/booking-service:$IMAGE_TAG",
+            "image": "$ECR_REGISTRY/booking-service:$BOOKING_TAG",
             "portMappings": [{ "containerPort": 3003, "protocol": "tcp" }],
             "environment": [
               { "name": "APP_MODE",          "value": "local" },
@@ -133,7 +164,7 @@ phases:
               { "name": "DB_NAME",           "value": "booking_db" },
               { "name": "JWT_SECRET",        "value": "$JWT_SECRET" },
               { "name": "INTERNAL_SECRET",   "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",        "value": "ap-northeast-2" },
+              { "name": "AWS_REGION",        "value": "$AWS_DEFAULT_REGION" },
               { "name": "HOTEL_SERVICE_URL", "value": "http://$ALB_DNS" }
             ],
             "logConfiguration": {
@@ -159,7 +190,7 @@ phases:
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
           "containerDefinitions": [{
             "name": "review-service",
-            "image": "$ECR_REGISTRY/review-service:$IMAGE_TAG",
+            "image": "$ECR_REGISTRY/review-service:$REVIEW_TAG",
             "portMappings": [{ "containerPort": 3004, "protocol": "tcp" }],
             "environment": [
               { "name": "APP_MODE",            "value": "local" },
@@ -171,7 +202,7 @@ phases:
               { "name": "DB_NAME",             "value": "review_db" },
               { "name": "JWT_SECRET",          "value": "$JWT_SECRET" },
               { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",          "value": "ap-northeast-2" },
+              { "name": "AWS_REGION",          "value": "$AWS_DEFAULT_REGION" },
               { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
               { "name": "HOTEL_SERVICE_URL",   "value": "http://$ALB_DNS" }
             ],
@@ -179,6 +210,45 @@ phases:
               "logDriver": "awslogs",
               "options": {
                 "awslogs-group": "/ecs/review-service",
+                "awslogs-region": "ap-northeast-2",
+                "awslogs-stream-prefix": "ecs"
+              }
+            }
+          }]
+        }
+        EOF
+
+      - |
+        cat > backend/support-service/taskdef.json << EOF
+        {
+          "family": "support-service",
+          "networkMode": "awsvpc",
+          "requiresCompatibilities": ["FARGATE"],
+          "cpu": "256",
+          "memory": "512",
+          "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "taskRoleArn": "$SUPPORT_TASK_ROLE_ARN",
+          "containerDefinitions": [{
+            "name": "support-service",
+            "image": "$ECR_REGISTRY/support-service:$SUPPORT_TAG",
+            "portMappings": [{ "containerPort": 3005, "protocol": "tcp" }],
+            "environment": [
+              { "name": "APP_MODE",          "value": "local" },
+              { "name": "PORT",              "value": "3005" },
+              { "name": "DB_HOST",           "value": "$DB_HOST" },
+              { "name": "DB_PORT",           "value": "3306" },
+              { "name": "DB_USER",           "value": "admin" },
+              { "name": "DB_PASSWORD",       "value": "$DB_PASSWORD" },
+              { "name": "DB_NAME",           "value": "support_db" },
+              { "name": "JWT_SECRET",        "value": "$JWT_SECRET" },
+              { "name": "INTERNAL_SECRET",   "value": "$INTERNAL_SECRET" },
+              { "name": "AWS_REGION",        "value": "$AWS_DEFAULT_REGION" },
+              { "name": "S3_UPLOADS_BUCKET", "value": "$S3_UPLOADS_BUCKET" }
+            ],
+            "logConfiguration": {
+              "logDriver": "awslogs",
+              "options": {
+                "awslogs-group": "/ecs/support-service",
                 "awslogs-region": "ap-northeast-2",
                 "awslogs-stream-prefix": "ecs"
               }
@@ -195,7 +265,9 @@ artifacts:
     - hotel-service/appspec.yaml
     - booking-service/appspec.yaml
     - review-service/appspec.yaml
+    - support-service/appspec.yaml
     - auth-service/taskdef.json
     - hotel-service/taskdef.json
     - booking-service/taskdef.json
     - review-service/taskdef.json
+    - support-service/taskdef.json
