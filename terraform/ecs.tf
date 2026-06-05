@@ -144,7 +144,8 @@ resource "aws_ecs_task_definition" "booking" {
       { name = "JWT_SECRET",        value = var.jwt_secret },
       { name = "INTERNAL_SECRET",   value = var.internal_secret },
       { name = "AWS_REGION",        value = var.aws_region },
-      { name = "HOTEL_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" }
+      { name = "HOTEL_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
+      { name = "SQS_QUEUE_URL",     value = aws_sqs_queue.booking_notification.url }
     ]
     logConfiguration = {
       logDriver = "awslogs"

@@ -165,7 +165,8 @@ phases:
               { "name": "JWT_SECRET",        "value": "$JWT_SECRET" },
               { "name": "INTERNAL_SECRET",   "value": "$INTERNAL_SECRET" },
               { "name": "AWS_REGION",        "value": "$AWS_DEFAULT_REGION" },
-              { "name": "HOTEL_SERVICE_URL", "value": "http://$ALB_DNS" }
+              { "name": "HOTEL_SERVICE_URL", "value": "http://$ALB_DNS" },
+              { "name": "SQS_QUEUE_URL",     "value": "$SQS_QUEUE_URL" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",

@@ -147,6 +147,9 @@ backend/dist/
 # Claude Code session data
 .claude/
 
+# Lambda build artifacts
+lambda/*.zip
+
 # Terraform
 terraform/.terraform/
 terraform/terraform.tfstate
