@@ -5,7 +5,15 @@ terraform {
       version = "~> 5.0"
     }
   }
-  required_version = ">= 1.6.0"
+  required_version = ">= 1.10.0"
+
+  backend "s3" {
+    key          = "terraform.tfstate"
+    encrypt      = true
+    use_lockfile = true
+    # bucket, region, profile은 backend-main.hcl 에서 주입
+    # terraform init -backend-config=backend-main.hcl
+  }
 }
 
 provider "aws" {
