@@ -1,31 +1,9 @@
 # ============================================================
 #  logs_alarms.tf
-#  CloudWatch 알람 + SNS + SQS 모니터링
+#  CloudWatch 알람 + SNS 모니터링
 # ============================================================
 
-# ── 1. SQS 큐 생성 ──────────────────────────────────────────
-# booking-queue: 예약 확정 이메일 알림용
-resource "aws_sqs_queue" "booking_queue" {
-  name                       = "booking-queue"
-  visibility_timeout_seconds = 300          # Lambda 처리 시간 고려 (5분)
-  message_retention_seconds  = 86400        # 메시지 보관 1일
-  receive_wait_time_seconds  = 20           # Long Polling (비용 절감)
-
-  tags = { Name = "booking-queue" }
-}
-
-# rating-queue: 리뷰 생성/삭제 시 평점 갱신용
-resource "aws_sqs_queue" "rating_queue" {
-  name                       = "rating-queue"
-  visibility_timeout_seconds = 60
-  message_retention_seconds  = 86400
-  receive_wait_time_seconds  = 20
-
-  tags = { Name = "rating-queue" }
-}
-
-
-# ── 2. SNS Topic (알람 배달 허브) ───────────────────────────
+# ── 1. SNS Topic (알람 배달 허브) ───────────────────────────
 resource "aws_sns_topic" "alerts" {
   name = "travel-app-alerts"
   tags = { Name = "TravelApp-Alerts" }
@@ -39,7 +17,7 @@ resource "aws_sns_topic_subscription" "email_alert" {
 }
 
 
-# ── 3. ECS CPU 알람 (5개 서비스) ────────────────────────────
+# ── 2. ECS CPU 알람 (5개 서비스) ────────────────────────────
 # 비유: 컨테이너 CPU가 70% 넘으면 소방 감지기처럼 SNS에 알림
 locals {
   ecs_services = {
@@ -76,7 +54,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
 }
 
 
-# ── 4. Aurora CPU 알람 ──────────────────────────────────────
+# ── 3. Aurora CPU 알람 ──────────────────────────────────────
 # Aurora는 RDS MySQL과 메트릭 이름 동일하지만 DBClusterIdentifier로 참조
 resource "aws_cloudwatch_metric_alarm" "aurora_cpu_high" {
   alarm_name          = "Aurora-CPU-High"
@@ -100,7 +78,7 @@ resource "aws_cloudwatch_metric_alarm" "aurora_cpu_high" {
 }
 
 
-# ── 5. Aurora 연결 수 알람 ──────────────────────────────────
+# ── 4. Aurora 연결 수 알람 ──────────────────────────────────
 # Aurora Serverless v2 max_capacity=4 기준 → 동시 연결 약 270개
 # 80개 초과 시 경고 (여유 있게 설정)
 resource "aws_cloudwatch_metric_alarm" "aurora_connections_high" {
@@ -125,7 +103,7 @@ resource "aws_cloudwatch_metric_alarm" "aurora_connections_high" {
 }
 
 
-# ── 6. ALB 5xx 에러 알람 ────────────────────────────────────
+# ── 5. ALB 5xx 에러 알람 ────────────────────────────────────
 # 서버 에러(500번대)가 1분에 10회 이상 발생하면 알람
 resource "aws_cloudwatch_metric_alarm" "alb_5xx_high" {
   alarm_name          = "ALB-5xx-High"
@@ -149,7 +127,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx_high" {
 }
 
 
-# ── 7. SQS 알람: booking-queue ──────────────────────────────
+# ── 6. SQS 알람: booking-queue ──────────────────────────────
 # 메시지가 100개 이상 쌓이면 "예약 처리가 밀리고 있어요!" 알람
 resource "aws_cloudwatch_metric_alarm" "booking_queue_depth" {
   alarm_name          = "SQS-BookingQueue-Depth-High"
@@ -174,7 +152,7 @@ resource "aws_cloudwatch_metric_alarm" "booking_queue_depth" {
 }
 
 
-# ── 8. SQS 알람: rating-queue ───────────────────────────────
+# ── 7. SQS 알람: rating-queue ───────────────────────────────
 # 메시지가 200개 이상 쌓이면 "평점 갱신이 밀리고 있어요!" 알람
 resource "aws_cloudwatch_metric_alarm" "rating_queue_depth" {
   alarm_name          = "SQS-RatingQueue-Depth-High"
