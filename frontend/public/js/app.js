@@ -182,6 +182,14 @@ function setupEventListeners() {
   // Admin forms
   document.getElementById('admin-hotel-form').addEventListener('submit', handleAdminHotelSubmit);
   document.getElementById('admin-room-form').addEventListener('submit', handleAdminRoomSubmit);
+  document.getElementById('ah-image-files')?.addEventListener('change', e => {
+    const preview = document.getElementById('ah-image-preview');
+    preview.innerHTML = '';
+    Array.from(e.target.files).slice(0, 5).forEach(f => {
+      const url = URL.createObjectURL(f);
+      preview.innerHTML += `<img src="${url}" style="width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border)">`;
+    });
+  });
 
   // Category dropdown toggle
   const categoryBtn = document.getElementById('btn-category-menu');
@@ -1453,8 +1461,7 @@ async function handleAdminHotelSubmit(e) {
   errEl.textContent = '';
 
   const amenities = [...document.querySelectorAll('#ah-amenities-grid input:checked')].map(cb => cb.value);
-  const imagesRaw = document.getElementById('ah-images').value.trim();
-  const images = imagesRaw ? imagesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  const selectedFiles = Array.from(document.getElementById('ah-image-files')?.files || []).slice(0, 5);
 
   const body = {
     name:           document.getElementById('ah-name').value,
@@ -1465,13 +1472,30 @@ async function handleAdminHotelSubmit(e) {
     region:         document.getElementById('ah-region').value,
     check_in_time:  document.getElementById('ah-checkin-time').value,
     check_out_time: document.getElementById('ah-checkout-time').value,
-    amenities, images,
+    amenities,
+    images: [],
   };
 
   try {
-    await api('/hotels', { method: 'POST', body: JSON.stringify(body) });
+    // 1. 호텔 생성 (이미지 없이)
+    const res = await api('/hotels', { method: 'POST', body: JSON.stringify(body) });
+    const hotelId = res.data?.id;
+
+    // 2. 이미지 파일이 있으면 presign → S3 업로드
+    if (hotelId && selectedFiles.length > 0) {
+      const imageUrls = await Promise.all(selectedFiles.map(async file => {
+        const presignRes = await api(`/hotels/${hotelId}/image-upload-url?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`);
+        await fetch(presignRes.data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+        return presignRes.data.imageUrl;
+      }));
+
+      // 3. 호텔 이미지 업데이트
+      await api(`/hotels/${hotelId}`, { method: 'PUT', body: JSON.stringify({ images: imageUrls }) });
+    }
+
     showToast('숙소가 등록되었습니다!', 'success');
     document.getElementById('admin-hotel-form').reset();
+    document.getElementById('ah-image-preview').innerHTML = '';
     switchAdminTab('hotels');
     loadAdminHotels();
     loadAdminStats();

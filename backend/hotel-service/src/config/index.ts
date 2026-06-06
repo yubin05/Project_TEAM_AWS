@@ -28,6 +28,7 @@ export const config = {
   },
   s3: {
     region:       process.env.AWS_REGION              || 'ap-northeast-2',
+    imagesBucket: process.env.S3_IMAGES_BUCKET         || '',
     sourceBucket: process.env.S3_SOURCE_BUCKET        || '',
     outputBucket: process.env.S3_OUTPUT_BUCKET        || '',
     cdnDomain:    process.env.S3_CLOUDFRONT_DOMAIN    || '',

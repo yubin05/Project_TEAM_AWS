@@ -127,6 +127,7 @@ phases:
               { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
               { "name": "AWS_REGION",          "value": "$AWS_DEFAULT_REGION" },
               { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
+              { "name": "S3_IMAGES_BUCKET",    "value": "$S3_IMAGES_BUCKET" },
               { "name": "REVIEW_SERVICE_URL",  "value": "http://$ALB_DNS" }
             ],
             "logConfiguration": {

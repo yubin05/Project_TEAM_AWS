@@ -268,6 +268,10 @@ resource "aws_codebuild_project" "main" {
       value = aws_s3_bucket.uploads.id
     }
     environment_variable {
+      name  = "S3_IMAGES_BUCKET"
+      value = aws_s3_bucket.uploads.id
+    }
+    environment_variable {
       name  = "SUPPORT_TASK_ROLE_ARN"
       value = aws_iam_role.ecs_task_support.arn
     }

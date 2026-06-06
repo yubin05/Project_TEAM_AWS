@@ -104,6 +104,7 @@ resource "aws_ecs_task_definition" "hotel" {
       { name = "JWT_SECRET",          value = var.jwt_secret },
       { name = "INTERNAL_SECRET",     value = var.internal_secret },
       { name = "AWS_REGION",          value = var.aws_region },
+      { name = "S3_IMAGES_BUCKET",    value = aws_s3_bucket.uploads.id },
       { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
       { name = "REVIEW_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" }
     ]

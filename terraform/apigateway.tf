@@ -187,6 +187,12 @@ resource "aws_apigatewayv2_route" "hotels_room_create" {
   target    = local.int_hotel
 }
 
+resource "aws_apigatewayv2_route" "hotels_image_upload_url" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /hotels/{id}/image-upload-url"
+  target    = local.int_hotel
+}
+
 resource "aws_apigatewayv2_route" "hotels_video_upload_url" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /hotels/{id}/video-upload-url"
