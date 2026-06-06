@@ -79,7 +79,7 @@ phases:
             "image": "$ECR_REGISTRY/auth-service:$AUTH_TAG",
             "portMappings": [{ "containerPort": 3001, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",        "value": "local" },
+              { "name": "APP_MODE",        "value": "aws" },
               { "name": "PORT",            "value": "3001" },
               { "name": "DB_HOST",         "value": "$DB_HOST" },
               { "name": "DB_PORT",         "value": "3306" },
@@ -116,7 +116,7 @@ phases:
             "image": "$ECR_REGISTRY/hotel-service:$HOTEL_TAG",
             "portMappings": [{ "containerPort": 3002, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",            "value": "local" },
+              { "name": "APP_MODE",            "value": "aws" },
               { "name": "PORT",                "value": "3002" },
               { "name": "DB_HOST",             "value": "$DB_HOST" },
               { "name": "DB_PORT",             "value": "3306" },
@@ -156,7 +156,7 @@ phases:
             "image": "$ECR_REGISTRY/booking-service:$BOOKING_TAG",
             "portMappings": [{ "containerPort": 3003, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",          "value": "local" },
+              { "name": "APP_MODE",          "value": "aws" },
               { "name": "PORT",              "value": "3003" },
               { "name": "DB_HOST",           "value": "$DB_HOST" },
               { "name": "DB_PORT",           "value": "3306" },
@@ -194,7 +194,7 @@ phases:
             "image": "$ECR_REGISTRY/review-service:$REVIEW_TAG",
             "portMappings": [{ "containerPort": 3004, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",            "value": "local" },
+              { "name": "APP_MODE",            "value": "aws" },
               { "name": "PORT",                "value": "3004" },
               { "name": "DB_HOST",             "value": "$DB_HOST" },
               { "name": "DB_PORT",             "value": "3306" },
@@ -234,7 +234,7 @@ phases:
             "image": "$ECR_REGISTRY/support-service:$SUPPORT_TAG",
             "portMappings": [{ "containerPort": 3005, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",          "value": "local" },
+              { "name": "APP_MODE",          "value": "aws" },
               { "name": "PORT",              "value": "3005" },
               { "name": "DB_HOST",           "value": "$DB_HOST" },
               { "name": "DB_PORT",           "value": "3306" },
