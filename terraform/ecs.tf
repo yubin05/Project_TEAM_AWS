@@ -365,7 +365,7 @@ resource "aws_ecs_service" "support" {
   name            = "support-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.support.arn
-  desired_count   = 1
+  desired_count   = 2
   launch_type     = "FARGATE"
 
   deployment_controller {
