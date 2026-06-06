@@ -27,6 +27,7 @@ resource "aws_s3_bucket_policy" "uploads_hotels_public" {
       Resource  = "${aws_s3_bucket.uploads.arn}/hotels/*"
     }]
   })
+  depends_on = [aws_s3_bucket_public_access_block.uploads]
 }
 
 resource "aws_s3_bucket_public_access_block" "uploads" {
