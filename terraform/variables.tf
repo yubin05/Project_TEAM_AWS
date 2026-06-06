@@ -76,3 +76,16 @@ variable "enable_migration" {
   type        = bool
   default     = false
 }
+
+variable "slack_webhook_url" {
+  description = "Slack Incoming Webhook URL (#배포 채널)"
+  type        = string
+  sensitive   = true
+  default     = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+}
+
+variable "alert_email" {
+  description = "CloudWatch 알람 수신 이메일 (SNS 이메일 구독용)"
+  type        = string
+  default     = "your-email@example.com"
+}

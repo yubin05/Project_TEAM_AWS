@@ -7,6 +7,14 @@ resource "aws_lb" "internal" {
   security_groups    = [aws_security_group.alb.id]
   subnets            = [aws_subnet.private_backend.id, aws_subnet.private_backend_2.id]
   tags               = { Name = "ThreeTier-ALB-Internal" }
+
+  access_logs {
+    bucket  = aws_s3_bucket.logs.id
+    prefix  = "alb-access-logs"
+    enabled = true
+  }
+
+  depends_on = [aws_s3_bucket_policy.logs]
 }
 
 # ── Target Groups (Blue) ──────────────────────────────────────────────────────

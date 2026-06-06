@@ -134,17 +134,18 @@ resource "aws_ecs_task_definition" "booking" {
     image = "${aws_ecr_repository.booking.repository_url}:latest"
     portMappings = [{ containerPort = 3003, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",          value = "local" },
-      { name = "PORT",              value = "3003" },
-      { name = "DB_HOST",           value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",           value = "3306" },
-      { name = "DB_USER",           value = "admin" },
-      { name = "DB_PASSWORD",       value = var.db_password },
-      { name = "DB_NAME",           value = "booking_db" },
-      { name = "JWT_SECRET",        value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",   value = var.internal_secret },
-      { name = "AWS_REGION",        value = var.aws_region },
-      { name = "HOTEL_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" }
+      { name = "APP_MODE",              value = "local" },
+      { name = "PORT",                  value = "3003" },
+      { name = "DB_HOST",               value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",               value = "3306" },
+      { name = "DB_USER",               value = "admin" },
+      { name = "DB_PASSWORD",           value = var.db_password },
+      { name = "DB_NAME",               value = "booking_db" },
+      { name = "JWT_SECRET",            value = var.jwt_secret },
+      { name = "INTERNAL_SECRET",       value = var.internal_secret },
+      { name = "AWS_REGION",            value = var.aws_region },
+      { name = "HOTEL_SERVICE_URL",     value = "http://${aws_lb.internal.dns_name}" },
+      { name = "SQS_BOOKING_QUEUE_URL", value = aws_sqs_queue.booking_queue.url }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -173,18 +174,19 @@ resource "aws_ecs_task_definition" "review" {
     image = "${aws_ecr_repository.review.repository_url}:latest"
     portMappings = [{ containerPort = 3004, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",            value = "local" },
-      { name = "PORT",                value = "3004" },
-      { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",             value = "3306" },
-      { name = "DB_USER",             value = "admin" },
-      { name = "DB_PASSWORD",         value = var.db_password },
-      { name = "DB_NAME",             value = "review_db" },
-      { name = "JWT_SECRET",          value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",     value = var.internal_secret },
-      { name = "AWS_REGION",          value = var.aws_region },
-      { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
-      { name = "HOTEL_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}" }
+      { name = "APP_MODE",             value = "local" },
+      { name = "PORT",                 value = "3004" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_PASSWORD",          value = var.db_password },
+      { name = "DB_NAME",              value = "review_db" },
+      { name = "JWT_SECRET",           value = var.jwt_secret },
+      { name = "INTERNAL_SECRET",      value = var.internal_secret },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}" },
+      { name = "SQS_RATING_QUEUE_URL", value = aws_sqs_queue.rating_queue.url }
     ]
     logConfiguration = {
       logDriver = "awslogs"
