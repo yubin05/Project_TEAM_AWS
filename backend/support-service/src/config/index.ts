@@ -23,4 +23,18 @@ export const config = {
   },
 };
 
-export async function loadSecrets(): Promise<void> {}
+export const isLocal = config.mode === 'local';
+export const isAWS   = config.mode === 'aws';
+
+export async function loadSecrets(): Promise<void> {
+  if (isLocal) return;
+  const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
+  const client = new SecretsManagerClient({ region: config.s3.region });
+  const { SecretString } = await client.send(
+    new GetSecretValueCommand({ SecretId: 'travel-app/support-service' })
+  );
+  const values = JSON.parse(SecretString!);
+  if (values.DB_PASSWORD)     process.env.DB_PASSWORD     = values.DB_PASSWORD;
+  if (values.JWT_SECRET)      process.env.JWT_SECRET      = values.JWT_SECRET;
+  if (values.INTERNAL_SECRET) process.env.INTERNAL_SECRET = values.INTERNAL_SECRET;
+}

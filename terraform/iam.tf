@@ -38,30 +38,6 @@ resource "aws_iam_role_policy" "ssm_s3_read" {
 }
 
 # ── ECS ───────────────────────────────────────────────────────────────────────
-resource "aws_iam_role" "ecs_task_support" {
-  name = "ThreeTier-ECS-Task-Support-Role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "ecs-tasks.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "ecs_task_support_s3" {
-  role = aws_iam_role.ecs_task_support.id
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect   = "Allow"
-      Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
-      Resource = "${aws_s3_bucket.uploads.arn}/*"
-    }]
-  })
-}
 
 resource "aws_iam_role" "ecs_task_execution" {
   name = "ThreeTier-ECS-TaskExecution-Role"
@@ -95,27 +71,50 @@ resource "aws_iam_role_policy" "ecs_task_execution_s3_uploads" {
   })
 }
 
-# ECS Task Role (Secrets Manager 설정 완료 후 주석 해제)
-# resource "aws_iam_role" "ecs_task" {
-#   name = "ThreeTier-ECS-Task-Role"
-#
-#   assume_role_policy = jsonencode({
-#     Version = "2012-10-17"
-#     Statement = [{
-#       Effect    = "Allow"
-#       Principal = { Service = "ecs-tasks.amazonaws.com" }
-#       Action    = "sts:AssumeRole"
-#     }]
-#   })
-#
-#   tags = { Name = "ThreeTier-ECS-Task-Role" }
-# }
-#
-# resource "aws_iam_role_policy_attachment" "ecs_task_sqs" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
-# }
-#
+resource "aws_iam_role" "ecs_task" {
+  name = "ThreeTier-ECS-Task-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-ECS-Task-Role" }
+}
+
+resource "aws_iam_role_policy" "ecs_task_secrets" {
+  role = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:travel-app/*"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "ecs_task_s3" {
+  role = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+      Resource = "${aws_s3_bucket.uploads.arn}/*"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_task_sqs" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+}
+
 # resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb" {
 #   role       = aws_iam_role.ecs_task.name
 #   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"

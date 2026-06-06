@@ -47,16 +47,14 @@ resource "aws_ecs_task_definition" "auth" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "auth-service"
     image = "${aws_ecr_repository.auth.repository_url}:latest"
     portMappings = [{ containerPort = 3001, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",        value = "local" },
+      { name = "APP_MODE",        value = "aws" },
       { name = "PORT",            value = "3001" },
       { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",         value = "3306" },
@@ -85,16 +83,14 @@ resource "aws_ecs_task_definition" "hotel" {
   cpu                      = 512
   memory                   = 1024
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "hotel-service"
     image = "${aws_ecr_repository.hotel.repository_url}:latest"
     portMappings = [{ containerPort = 3002, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",            value = "local" },
+      { name = "APP_MODE",            value = "aws" },
       { name = "PORT",                value = "3002" },
       { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",             value = "3306" },
@@ -126,16 +122,14 @@ resource "aws_ecs_task_definition" "booking" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "booking-service"
     image = "${aws_ecr_repository.booking.repository_url}:latest"
     portMappings = [{ containerPort = 3003, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",          value = "local" },
+      { name = "APP_MODE",          value = "aws" },
       { name = "PORT",              value = "3003" },
       { name = "DB_HOST",           value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",           value = "3306" },
@@ -165,16 +159,14 @@ resource "aws_ecs_task_definition" "review" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "review-service"
     image = "${aws_ecr_repository.review.repository_url}:latest"
     portMappings = [{ containerPort = 3004, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",            value = "local" },
+      { name = "APP_MODE",            value = "aws" },
       { name = "PORT",                value = "3004" },
       { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",             value = "3306" },
@@ -205,14 +197,14 @@ resource "aws_ecs_task_definition" "support" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task_support.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "support-service"
     image = "${aws_ecr_repository.support.repository_url}:latest"
     portMappings = [{ containerPort = 3005, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",        value = "local" },
+      { name = "APP_MODE",        value = "aws" },
       { name = "PORT",            value = "3005" },
       { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",         value = "3306" },

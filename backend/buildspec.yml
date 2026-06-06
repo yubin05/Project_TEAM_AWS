@@ -74,6 +74,7 @@ phases:
           "cpu": "256",
           "memory": "512",
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "taskRoleArn": "$TASK_ROLE_ARN",
           "containerDefinitions": [{
             "name": "auth-service",
             "image": "$ECR_REGISTRY/auth-service:$AUTH_TAG",
@@ -111,6 +112,7 @@ phases:
           "cpu": "512",
           "memory": "1024",
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "taskRoleArn": "$TASK_ROLE_ARN",
           "containerDefinitions": [{
             "name": "hotel-service",
             "image": "$ECR_REGISTRY/hotel-service:$HOTEL_TAG",
@@ -151,6 +153,7 @@ phases:
           "cpu": "256",
           "memory": "512",
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "taskRoleArn": "$TASK_ROLE_ARN",
           "containerDefinitions": [{
             "name": "booking-service",
             "image": "$ECR_REGISTRY/booking-service:$BOOKING_TAG",
@@ -189,6 +192,7 @@ phases:
           "cpu": "256",
           "memory": "512",
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
+          "taskRoleArn": "$TASK_ROLE_ARN",
           "containerDefinitions": [{
             "name": "review-service",
             "image": "$ECR_REGISTRY/review-service:$REVIEW_TAG",
@@ -228,7 +232,7 @@ phases:
           "cpu": "256",
           "memory": "512",
           "executionRoleArn": "$EXECUTION_ROLE_ARN",
-          "taskRoleArn": "$SUPPORT_TASK_ROLE_ARN",
+          "taskRoleArn": "$TASK_ROLE_ARN",
           "containerDefinitions": [{
             "name": "support-service",
             "image": "$ECR_REGISTRY/support-service:$SUPPORT_TAG",
