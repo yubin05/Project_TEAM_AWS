@@ -178,6 +178,10 @@ export async function changePassword(req: Request, res: Response): Promise<void>
       res.status(401).json({ success: false, message: '현재 비밀번호가 잘못되었습니다.' });
       return;
     }
+    if (error.name === 'InvalidPasswordException') {
+      res.status(400).json({ success: false, message: '새 비밀번호는 8자 이상이며 대문자, 소문자, 숫자, 특수문자를 모두 포함해야 합니다.' });
+      return;
+    }
     logger.error('Change password error', { error: error.message });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
