@@ -225,3 +225,201 @@ resource "aws_iam_role_policy" "codebuild" {
     ]
   })
 }
+
+# ── Lambda: SQS → Lambda → SES (예약 알림 이메일) ────────────────────────────
+# 기능: booking-service가 SQS에 예약 정보 전송 → Lambda가 소비 → SES로 확인 메일 발송
+# 관련 파일: lambda.tf, sqs.tf, ses.tf
+
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_notification_role" {
+  name               = "ThreeTier-Lambda-Notification-Role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+  tags = {
+    Name      = "ThreeTier-Lambda-Notification-Role"
+    ManagedBy = "terraform"
+  }
+}
+
+data "aws_iam_policy_document" "lambda_notification_policy" {
+  # ① CloudWatch Logs — 실행 로그 기록
+  statement {
+    sid    = "AllowCloudWatchLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = [
+      "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/ThreeTier-Booking-Notification:*"
+    ]
+  }
+
+  # ② SQS 본 큐 — 메시지 수신 & 삭제
+  statement {
+    sid    = "AllowSQSConsume"
+    effect = "Allow"
+    actions = [
+      "sqs:ReceiveMessage",
+      "sqs:DeleteMessage",
+      "sqs:GetQueueAttributes"
+    ]
+    resources = [aws_sqs_queue.booking_notification.arn]
+  }
+
+  # ③ SQS DLQ — 속성 조회 (모니터링용, 쓰기 권한 없음)
+  statement {
+    sid    = "AllowDLQRead"
+    effect = "Allow"
+    actions = [
+      "sqs:GetQueueAttributes",
+      "sqs:GetQueueUrl"
+    ]
+    resources = [aws_sqs_queue.booking_dlq.arn]
+  }
+
+  # ④ SES — 등록된 발신자 Identity에서만 이메일 발송
+  statement {
+    sid    = "AllowSESSend"
+    effect = "Allow"
+    actions = [
+      "ses:SendEmail",
+      "ses:SendRawEmail"
+    ]
+    resources = [aws_ses_email_identity.sender.arn]
+  }
+}
+
+resource "aws_iam_policy" "lambda_notification_policy" {
+  name        = "ThreeTier-Lambda-Notification-Policy"
+  description = "ThreeTier booking-notification Lambda 최소 권한"
+  policy      = data.aws_iam_policy_document.lambda_notification_policy.json
+  tags = {
+    Name      = "ThreeTier-Lambda-Notification-Policy"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_notification" {
+  role       = aws_iam_role.lambda_notification_role.name
+  policy_arn = aws_iam_policy.lambda_notification_policy.arn
+}
+
+output "lambda_notification_role_arn" {
+  description = "Lambda 함수 생성 시 role에 지정할 ARN (lambda.tf 참조)"
+  value       = aws_iam_role.lambda_notification_role.arn
+}
+
+# SQS Queue Policy: Lambda Role만 메시지 소비 허용 (이중 레이어 접근 제어)
+resource "aws_sqs_queue_policy" "booking_notification" {
+  queue_url = aws_sqs_queue.booking_notification.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      # Secrets Manager 구현 및 ECS Task Role 활성화 후 아래 블록 주석 해제
+      # {
+      #   Sid    = "AllowECSBookingServiceSend"
+      #   Effect = "Allow"
+      #   Principal = { AWS = aws_iam_role.ecs_task.arn }
+      #   Action   = "sqs:SendMessage"
+      #   Resource = aws_sqs_queue.booking_notification.arn
+      # },
+      {
+        Sid    = "AllowLambdaConsume"
+        Effect = "Allow"
+        Principal = { AWS = aws_iam_role.lambda_notification_role.arn }
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ]
+        Resource = aws_sqs_queue.booking_notification.arn
+      }
+    ]
+  })
+}
+
+# ── Lambda: S3 이미지 업로드 → 썸네일 리사이즈 ──────────────────────────────
+# 기능: S3 hotels/original/ 에 이미지 업로드 시 Lambda 자동 실행 → Sharp로 리사이즈 → thumbnails/ 저장
+# 관련 파일: lambda_image_resize.tf, s3.tf
+
+data "aws_iam_policy_document" "lambda_image_resize_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_image_resize_role" {
+  name               = "ThreeTier-Lambda-ImageResize-Role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_image_resize_assume.json
+  tags = {
+    Name      = "ThreeTier-Lambda-ImageResize-Role"
+    ManagedBy = "terraform"
+  }
+}
+
+data "aws_iam_policy_document" "lambda_image_resize_policy" {
+  # ① CloudWatch Logs — 실행 로그 기록
+  statement {
+    sid    = "AllowCloudWatchLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = [
+      "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/ThreeTier-Image-Resize:*"
+    ]
+  }
+
+  # ② S3 원본 이미지 읽기 (hotels/original/ 경로만 허용)
+  statement {
+    sid     = "AllowS3GetOriginal"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.uploads.arn}/hotels/original/*"
+    ]
+  }
+
+  # ③ S3 썸네일 쓰기 (hotels/thumbnails/ 경로만 허용)
+  statement {
+    sid     = "AllowS3PutThumbnail"
+    effect  = "Allow"
+    actions = ["s3:PutObject"]
+    resources = [
+      "${aws_s3_bucket.uploads.arn}/hotels/thumbnails/*"
+    ]
+  }
+}
+
+resource "aws_iam_policy" "lambda_image_resize_policy" {
+  name        = "ThreeTier-Lambda-ImageResize-Policy"
+  description = "image-resize Lambda 최소 권한 (S3 원본 읽기 + 썸네일 쓰기 + CloudWatch)"
+  policy      = data.aws_iam_policy_document.lambda_image_resize_policy.json
+  tags = {
+    Name      = "ThreeTier-Lambda-ImageResize-Policy"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_image_resize" {
+  role       = aws_iam_role.lambda_image_resize_role.name
+  policy_arn = aws_iam_policy.lambda_image_resize_policy.arn
+}
