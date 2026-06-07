@@ -26,20 +26,6 @@ data "archive_file" "image_resize" {
 }
 
 # ──────────────────────────────────────────────
-# 3. CloudWatch Log Group
-#    Lambda보다 먼저 생성해 retention 기간 제어
-# ──────────────────────────────────────────────
-resource "aws_cloudwatch_log_group" "lambda_image_resize" {
-  name              = "/aws/lambda/ThreeTier-Image-Resize"
-  retention_in_days = 30
-
-  tags = {
-    Name      = "ThreeTier-Image-Resize-Logs"
-    ManagedBy = "terraform"
-  }
-}
-
-# ──────────────────────────────────────────────
 # 4. Lambda 함수 생성
 # ──────────────────────────────────────────────
 resource "aws_lambda_function" "image_resize" {

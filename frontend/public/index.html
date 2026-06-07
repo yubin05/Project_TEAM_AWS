@@ -409,10 +409,12 @@
             </div>
 
             <div class="admin-form-section">
-              <h3>이미지 URL</h3>
-              <p style="font-size:0.85rem;color:var(--text-light);margin-bottom:12px">S3 URL 또는 외부 이미지 URL (쉼표로 구분)</p>
+              <h3>이미지</h3>
               <div class="form-group">
-                <textarea id="ah-images" rows="3" placeholder="https://example.com/img1.jpg, https://example.com/img2.jpg"></textarea>
+                <input type="file" id="ah-image-files" multiple accept=".jpg,.jpeg,.png,.webp" style="display:none">
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('ah-image-files').click()">📷 이미지 선택</button>
+                <span style="font-size:0.85rem;color:var(--text-light);margin-left:8px">JPG, PNG, WebP / 최대 5개</span>
+                <div id="ah-image-preview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"></div>
               </div>
             </div>
 

@@ -245,19 +245,12 @@ resource "aws_codebuild_project" "main" {
       value = aws_rds_cluster.main.endpoint
     }
     environment_variable {
-      name  = "DB_PASSWORD"
-      value = var.db_password
-      type  = "PLAINTEXT"
+      name  = "COGNITO_USER_POOL_ID"
+      value = var.cognito_user_pool_id
     }
     environment_variable {
-      name  = "JWT_SECRET"
-      value = var.jwt_secret
-      type  = "PLAINTEXT"
-    }
-    environment_variable {
-      name  = "INTERNAL_SECRET"
-      value = var.internal_secret
-      type  = "PLAINTEXT"
+      name  = "COGNITO_CLIENT_ID"
+      value = var.cognito_client_id
     }
     environment_variable {
       name  = "ALB_DNS"
@@ -272,8 +265,12 @@ resource "aws_codebuild_project" "main" {
       value = aws_s3_bucket.uploads.id
     }
     environment_variable {
-      name  = "SUPPORT_TASK_ROLE_ARN"
-      value = aws_iam_role.ecs_task_support.arn
+      name  = "S3_IMAGES_BUCKET"
+      value = aws_s3_bucket.uploads.id
+    }
+    environment_variable {
+      name  = "TASK_ROLE_ARN"
+      value = aws_iam_role.ecs_task.arn
     }
   }
 

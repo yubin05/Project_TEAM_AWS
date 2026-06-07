@@ -15,6 +15,29 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
   }
 }
 
+# hotels/ 경로는 공개 읽기 허용 (호텔 이미지 표시용)
+resource "aws_s3_bucket_policy" "uploads_hotels_public" {
+  bucket = aws_s3_bucket.uploads.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "s3:GetObject"
+      Resource  = "${aws_s3_bucket.uploads.arn}/hotels/*"
+    }]
+  })
+  depends_on = [aws_s3_bucket_public_access_block.uploads]
+}
+
+resource "aws_s3_bucket_public_access_block" "uploads" {
+  bucket                  = aws_s3_bucket.uploads.id
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
+}
+
 resource "aws_s3_bucket_cors_configuration" "uploads" {
   bucket = aws_s3_bucket.uploads.id
   cors_rule {
@@ -39,4 +62,29 @@ resource "aws_s3_bucket_notification" "image_upload_trigger" {
 
   # Lambda 리소스 정책(aws_lambda_permission)이 먼저 생성되어야 함
   depends_on = [aws_lambda_permission.allow_s3_invoke_image_resize]
+}
+
+# ── MySQL EC2 user_data용 스크립트 (S3 VPC 엔드포인트로 다운로드) ──────────────
+resource "aws_s3_object" "mysql_install" {
+  count  = var.enable_migration ? 1 : 0
+  bucket = aws_s3_bucket.uploads.bucket
+  key    = "database/mysql_install.sh"
+  source = "${path.module}/../database/scripts/mysql_install.sh"
+  etag   = filemd5("${path.module}/../database/scripts/mysql_install.sh")
+}
+
+resource "aws_s3_object" "run_seed" {
+  count  = var.enable_migration ? 1 : 0
+  bucket = aws_s3_bucket.uploads.bucket
+  key    = "database/run-seed.sh"
+  source = "${path.module}/../database/scripts/run-seed.sh"
+  etag   = filemd5("${path.module}/../database/scripts/run-seed.sh")
+}
+
+resource "aws_s3_object" "seed_sql" {
+  count  = var.enable_migration ? 1 : 0
+  bucket = aws_s3_bucket.uploads.bucket
+  key    = "database/seed.sql"
+  source = "${path.module}/../database/scripts/seed.sql"
+  etag   = filemd5("${path.module}/../database/scripts/seed.sql")
 }

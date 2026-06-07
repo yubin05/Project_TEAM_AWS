@@ -1,4 +1,4 @@
-import { config, isLocal } from '../config';
+import { config } from '../config';
 import pool from '../models/pool';
 import logger from '../utils/logger';
 
@@ -42,15 +42,11 @@ async function updateHotelRating(hotelId: string): Promise<void> {
 }
 
 export async function startSQSConsumer(): Promise<void> {
-  const { endpoint: sqsEndpoint, queueUrl } = config.sqs;
+  const { queueUrl } = config.sqs;
 
   const { SQSClient, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 
-  const client = new SQSClient({
-    region:      config.sqs.region,
-    endpoint:    isLocal ? sqsEndpoint : undefined,
-    credentials: isLocal ? { accessKeyId: 'local', secretAccessKey: 'local' } : undefined,
-  });
+  const client = new SQSClient({ region: config.sqs.region });
 
   logger.info('SQS consumer started', { queueUrl });
 

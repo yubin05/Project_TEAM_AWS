@@ -163,3 +163,6 @@ terraform/*.tfvars
 
 # .local
 .local/
+
+# lambda
+lambda/*.zip

@@ -15,18 +15,14 @@ variable "key_name" {
   type        = string
 }
 
-variable "jwt_secret" {
-  description = "JWT 시크릿 (모든 서비스 공유)"
+variable "cognito_user_pool_id" {
+  description = "Cognito User Pool ID"
   type        = string
-  sensitive   = true
-  default     = "change-me-jwt-secret-32chars"
 }
 
-variable "internal_secret" {
-  description = "서비스 간 내부 통신 시크릿"
+variable "cognito_client_id" {
+  description = "Cognito App Client ID"
   type        = string
-  sensitive   = true
-  default     = "change-me-internal-secret"
 }
 
 variable "github_token" {
@@ -57,7 +53,6 @@ variable "db_password" {
   description = "RDS MySQL 관리자 비밀번호"
   type        = string
   sensitive   = true
-  default     = "Change-me-db-password1!"
 }
 
 variable "github_connection_uuid" {
@@ -75,4 +70,17 @@ variable "enable_migration" {
   description = "MySQL EC2 + DMS 리소스 활성화. 최초 배포 시 true, 마이그레이션 완료 후 false로 바꾸고 apply하면 자동 삭제"
   type        = bool
   default     = false
+}
+
+variable "slack_webhook_url" {
+  description = "Slack Incoming Webhook URL (#배포 채널)"
+  type        = string
+  sensitive   = true
+  default     = "https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+}
+
+variable "alert_email" {
+  description = "CloudWatch 알람 수신 이메일 (SNS 이메일 구독용)"
+  type        = string
+  default     = "your-email@example.com"
 }

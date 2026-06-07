@@ -19,22 +19,6 @@ data "archive_file" "booking_notification" {
 }
 
 # ──────────────────────────────────────────────
-# 2. CloudWatch Log Group
-#    Lambda 실행 로그를 저장할 그룹
-#    Lambda가 자동 생성하기 전에 Terraform이 먼저 만들어서
-#    retention 기간을 제어
-# ──────────────────────────────────────────────
-resource "aws_cloudwatch_log_group" "lambda_booking_notification" {
-  name              = "/aws/lambda/ThreeTier-Booking-Notification"
-  retention_in_days = 30
-
-  tags = {
-    Name      = "ThreeTier-Booking-Notification-Logs"
-    ManagedBy = "terraform"
-  }
-}
-
-# ──────────────────────────────────────────────
 # 3. Lambda 함수 생성
 # ──────────────────────────────────────────────
 resource "aws_lambda_function" "booking_notification" {

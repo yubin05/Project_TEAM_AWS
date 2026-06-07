@@ -1,4 +1,4 @@
-import { config, isLocal } from '../config';
+import { config } from '../config';
 import logger from '../utils/logger';
 
 // 번역 캐시 (DynamoDB로 교체 가능)

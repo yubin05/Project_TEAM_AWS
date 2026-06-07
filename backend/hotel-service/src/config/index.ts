@@ -8,9 +8,6 @@ export const config = {
     password: process.env.DB_PASSWORD || 'localpassword',
     name:     process.env.DB_NAME     || 'hotel_db',
   },
-  jwt: {
-    secret: process.env.JWT_SECRET || 'local-dev-secret-key-2024',
-  },
   cognito: {
     userPoolId: process.env.COGNITO_USER_POOL_ID || '',
     clientId:   process.env.COGNITO_CLIENT_ID   || '',
@@ -28,6 +25,7 @@ export const config = {
   },
   s3: {
     region:       process.env.AWS_REGION              || 'ap-northeast-2',
+    imagesBucket: process.env.S3_IMAGES_BUCKET         || '',
     sourceBucket: process.env.S3_SOURCE_BUCKET        || '',
     outputBucket: process.env.S3_OUTPUT_BUCKET        || '',
     cdnDomain:    process.env.S3_CLOUDFRONT_DOMAIN    || '',
@@ -52,19 +50,3 @@ export const config = {
   },
 };
 
-export const isLocal = config.mode === 'local';
-export const isAWS   = config.mode === 'aws';
-
-export async function loadSecrets(): Promise<void> {
-  if (isLocal) return;
-  const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
-  const client = new SecretsManagerClient({ region: config.cognito.region });
-  const { SecretString } = await client.send(
-    new GetSecretValueCommand({ SecretId: 'travel-app/hotel-service' })
-  );
-  const values = JSON.parse(SecretString!);
-  if (values.DB_PASSWORD)             process.env.DB_PASSWORD             = values.DB_PASSWORD;
-  if (values.AZURE_TRANSLATOR_KEY)    process.env.AZURE_TRANSLATOR_KEY    = values.AZURE_TRANSLATOR_KEY;
-  if (values.LAMBDA_CALLBACK_SECRET)  process.env.LAMBDA_CALLBACK_SECRET  = values.LAMBDA_CALLBACK_SECRET;
-  if (values.INTERNAL_SECRET)         process.env.INTERNAL_SECRET         = values.INTERNAL_SECRET;
-}
