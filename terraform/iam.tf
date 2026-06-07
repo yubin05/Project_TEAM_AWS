@@ -320,7 +320,10 @@ data "aws_iam_policy_document" "lambda_notification_policy" {
     resources = [aws_sqs_queue.booking_dlq.arn]
   }
 
-  # ④ SES — 등록된 발신자 Identity에서만 이메일 발송
+  # ④ SES — 발신자 Identity에서 이메일 발송
+  #    SES는 ses:SendEmail 권한 검사를 발신자뿐 아니라, 같은 계정 내에서
+  #    검증된 "수신자" Identity의 ARN에도 적용한다. 테스트 단계에서는
+  #    수신 테스트용 이메일이 계속 추가/교체되므로 계정 내 모든 Identity로 범위를 둔다.
   statement {
     sid    = "AllowSESSend"
     effect = "Allow"
@@ -328,7 +331,7 @@ data "aws_iam_policy_document" "lambda_notification_policy" {
       "ses:SendEmail",
       "ses:SendRawEmail"
     ]
-    resources = [aws_ses_email_identity.sender.arn]
+    resources = ["arn:aws:ses:${var.aws_region}:${data.aws_caller_identity.current.account_id}:identity/*"]
   }
 }
 
