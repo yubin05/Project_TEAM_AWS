@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
-import { config, loadSecrets } from './config';
+import { config } from './config';
 import router from './routes';
 import logger from './utils/logger';
 
@@ -19,14 +19,6 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'review-service', mode: config.mode });
 });
 
-async function bootstrap() {
-  await loadSecrets();
-  app.listen(config.port, () => {
-    logger.info('review-service started', { port: config.port, mode: config.mode });
-  });
-}
-
-bootstrap().catch(err => {
-  logger.error('Failed to start review-service', { err });
-  process.exit(1);
+app.listen(config.port, () => {
+  logger.info('review-service started', { port: config.port, mode: config.mode });
 });

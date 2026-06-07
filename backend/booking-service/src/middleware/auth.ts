@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { config, isLocal } from '../config';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
+import { config } from '../config';
 import { JwtPayload } from '../types';
 
 declare global {
@@ -9,43 +9,27 @@ declare global {
   }
 }
 
-let cognitoVerifier: any = null;
-if (!isLocal && config.cognito.userPoolId) {
-  try {
-    const { CognitoJwtVerifier } = require('aws-jwt-verify');
-    cognitoVerifier = CognitoJwtVerifier.create({
-      userPoolId: config.cognito.userPoolId,
-      tokenUse:   'access',
-      clientId:   config.cognito.clientId,
-    });
-  } catch {
-    console.warn('aws-jwt-verify 로드 실패 — Cognito 검증 비활성화');
-  }
-}
+const cognitoVerifier = CognitoJwtVerifier.create({
+  userPoolId: config.cognito.userPoolId,
+  tokenUse:   'access',
+  clientId:   config.cognito.clientId,
+});
 
 export async function authenticateToken(
   req: Request, res: Response, next: NextFunction
 ): Promise<void> {
   const token = req.headers['authorization']?.split(' ')[1];
-
   if (!token) {
     res.status(401).json({ success: false, message: '인증 토큰이 필요합니다.' });
     return;
   }
-
   try {
-    if (isLocal) {
-      const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
-      req.user = decoded;
-    } else {
-      if (!cognitoVerifier) throw new Error('Cognito verifier not initialized');
-      const payload = await cognitoVerifier.verify(token);
-      req.user = {
-        userId: payload.sub,
-        email:  payload.email ?? '',
-        role:   payload['custom:role'] ?? 'user',
-      };
-    }
+    const payload = await cognitoVerifier.verify(token) as any;
+    req.user = {
+      userId: payload.sub,
+      email:  payload.email ?? '',
+      role:   payload['custom:role'] ?? 'user',
+    };
     next();
   } catch {
     res.status(403).json({ success: false, message: '유효하지 않은 토큰입니다.' });

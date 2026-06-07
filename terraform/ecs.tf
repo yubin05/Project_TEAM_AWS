@@ -54,16 +54,19 @@ resource "aws_ecs_task_definition" "auth" {
     image = "${aws_ecr_repository.auth.repository_url}:latest"
     portMappings = [{ containerPort = 3001, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",        value = "aws" },
-      { name = "PORT",            value = "3001" },
-      { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",         value = "3306" },
-      { name = "DB_USER",         value = "admin" },
-      { name = "DB_PASSWORD",     value = var.db_password },
-      { name = "DB_NAME",         value = "auth_db" },
-      { name = "JWT_SECRET",      value = var.jwt_secret },
-      { name = "INTERNAL_SECRET", value = var.internal_secret },
-      { name = "AWS_REGION",      value = var.aws_region }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3001" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "auth_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "Travel-Auth-Service:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "Travel-Auth-Service:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -90,19 +93,24 @@ resource "aws_ecs_task_definition" "hotel" {
     image = "${aws_ecr_repository.hotel.repository_url}:latest"
     portMappings = [{ containerPort = 3002, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",            value = "aws" },
-      { name = "PORT",                value = "3002" },
-      { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",             value = "3306" },
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3002" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
       { name = "DB_USER",             value = "admin" },
-      { name = "DB_PASSWORD",         value = var.db_password },
-      { name = "DB_NAME",             value = "hotel_db" },
-      { name = "JWT_SECRET",          value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",     value = var.internal_secret },
-      { name = "AWS_REGION",          value = var.aws_region },
-      { name = "S3_IMAGES_BUCKET",    value = aws_s3_bucket.uploads.id },
-      { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
-      { name = "REVIEW_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" }
+      { name = "DB_NAME",              value = "hotel_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "S3_IMAGES_BUCKET",     value = aws_s3_bucket.uploads.id },
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" },
+      { name = "REVIEW_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}" },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",             valueFrom = "Travel-Hotel-Service:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET",         valueFrom = "Travel-Hotel-Service:INTERNAL_SECRET::" },
+      { name = "AZURE_TRANSLATOR_KEY",    valueFrom = "Travel-Hotel-Service:AZURE_TRANSLATOR_KEY::" },
+      { name = "LAMBDA_CALLBACK_SECRET",  valueFrom = "Travel-Hotel-Service:LAMBDA_CALLBACK_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -129,17 +137,20 @@ resource "aws_ecs_task_definition" "booking" {
     image = "${aws_ecr_repository.booking.repository_url}:latest"
     portMappings = [{ containerPort = 3003, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",          value = "aws" },
-      { name = "PORT",              value = "3003" },
-      { name = "DB_HOST",           value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",           value = "3306" },
-      { name = "DB_USER",           value = "admin" },
-      { name = "DB_PASSWORD",       value = var.db_password },
-      { name = "DB_NAME",           value = "booking_db" },
-      { name = "JWT_SECRET",        value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",   value = var.internal_secret },
-      { name = "AWS_REGION",        value = var.aws_region },
-      { name = "HOTEL_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3003" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "booking_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}" },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "Travel-Booking-Service:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "Travel-Booking-Service:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -166,18 +177,21 @@ resource "aws_ecs_task_definition" "review" {
     image = "${aws_ecr_repository.review.repository_url}:latest"
     portMappings = [{ containerPort = 3004, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",            value = "aws" },
-      { name = "PORT",                value = "3004" },
-      { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",             value = "3306" },
-      { name = "DB_USER",             value = "admin" },
-      { name = "DB_PASSWORD",         value = var.db_password },
-      { name = "DB_NAME",             value = "review_db" },
-      { name = "JWT_SECRET",          value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",     value = var.internal_secret },
-      { name = "AWS_REGION",          value = var.aws_region },
-      { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
-      { name = "HOTEL_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}" }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3004" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "review_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}" },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "Travel-Review-Service:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "Travel-Review-Service:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -204,17 +218,20 @@ resource "aws_ecs_task_definition" "support" {
     image = "${aws_ecr_repository.support.repository_url}:latest"
     portMappings = [{ containerPort = 3005, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",        value = "aws" },
-      { name = "PORT",            value = "3005" },
-      { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",         value = "3306" },
-      { name = "DB_USER",         value = "admin" },
-      { name = "DB_PASSWORD",     value = var.db_password },
-      { name = "DB_NAME",         value = "support_db" },
-      { name = "JWT_SECRET",        value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",   value = var.internal_secret },
-      { name = "AWS_REGION",        value = var.aws_region },
-      { name = "S3_UPLOADS_BUCKET", value = aws_s3_bucket.uploads.id }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3005" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "support_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "S3_UPLOADS_BUCKET",    value = aws_s3_bucket.uploads.id },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "Travel-Support-Service:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "Travel-Support-Service:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"

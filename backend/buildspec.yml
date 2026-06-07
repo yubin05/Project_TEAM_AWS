@@ -80,16 +80,19 @@ phases:
             "image": "$ECR_REGISTRY/auth-service:$AUTH_TAG",
             "portMappings": [{ "containerPort": 3001, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",        "value": "aws" },
-              { "name": "PORT",            "value": "3001" },
-              { "name": "DB_HOST",         "value": "$DB_HOST" },
-              { "name": "DB_PORT",         "value": "3306" },
-              { "name": "DB_USER",         "value": "admin" },
-              { "name": "DB_PASSWORD",     "value": "$DB_PASSWORD" },
-              { "name": "DB_NAME",         "value": "auth_db" },
-              { "name": "JWT_SECRET",      "value": "$JWT_SECRET" },
-              { "name": "INTERNAL_SECRET", "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",      "value": "$AWS_DEFAULT_REGION" }
+              { "name": "APP_MODE",             "value": "aws" },
+              { "name": "PORT",                 "value": "3001" },
+              { "name": "DB_HOST",              "value": "$DB_HOST" },
+              { "name": "DB_PORT",              "value": "3306" },
+              { "name": "DB_USER",              "value": "admin" },
+              { "name": "DB_NAME",              "value": "auth_db" },
+              { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
+              { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+            ],
+            "secrets": [
+              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Auth-Service:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Auth-Service:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -118,19 +121,24 @@ phases:
             "image": "$ECR_REGISTRY/hotel-service:$HOTEL_TAG",
             "portMappings": [{ "containerPort": 3002, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",            "value": "aws" },
-              { "name": "PORT",                "value": "3002" },
-              { "name": "DB_HOST",             "value": "$DB_HOST" },
-              { "name": "DB_PORT",             "value": "3306" },
-              { "name": "DB_USER",             "value": "admin" },
-              { "name": "DB_PASSWORD",         "value": "$DB_PASSWORD" },
-              { "name": "DB_NAME",             "value": "hotel_db" },
-              { "name": "JWT_SECRET",          "value": "$JWT_SECRET" },
-              { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",          "value": "$AWS_DEFAULT_REGION" },
-              { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
-              { "name": "S3_IMAGES_BUCKET",    "value": "$S3_IMAGES_BUCKET" },
-              { "name": "REVIEW_SERVICE_URL",  "value": "http://$ALB_DNS" }
+              { "name": "APP_MODE",             "value": "aws" },
+              { "name": "PORT",                 "value": "3002" },
+              { "name": "DB_HOST",              "value": "$DB_HOST" },
+              { "name": "DB_PORT",              "value": "3306" },
+              { "name": "DB_USER",              "value": "admin" },
+              { "name": "DB_NAME",              "value": "hotel_db" },
+              { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
+              { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS" },
+              { "name": "S3_IMAGES_BUCKET",     "value": "$S3_IMAGES_BUCKET" },
+              { "name": "REVIEW_SERVICE_URL",   "value": "http://$ALB_DNS" },
+              { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+            ],
+            "secrets": [
+              { "name": "DB_PASSWORD",            "valueFrom": "Travel-Hotel-Service:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET",        "valueFrom": "Travel-Hotel-Service:INTERNAL_SECRET::" },
+              { "name": "AZURE_TRANSLATOR_KEY",   "valueFrom": "Travel-Hotel-Service:AZURE_TRANSLATOR_KEY::" },
+              { "name": "LAMBDA_CALLBACK_SECRET", "valueFrom": "Travel-Hotel-Service:LAMBDA_CALLBACK_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -159,17 +167,20 @@ phases:
             "image": "$ECR_REGISTRY/booking-service:$BOOKING_TAG",
             "portMappings": [{ "containerPort": 3003, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",          "value": "aws" },
-              { "name": "PORT",              "value": "3003" },
-              { "name": "DB_HOST",           "value": "$DB_HOST" },
-              { "name": "DB_PORT",           "value": "3306" },
-              { "name": "DB_USER",           "value": "admin" },
-              { "name": "DB_PASSWORD",       "value": "$DB_PASSWORD" },
-              { "name": "DB_NAME",           "value": "booking_db" },
-              { "name": "JWT_SECRET",        "value": "$JWT_SECRET" },
-              { "name": "INTERNAL_SECRET",   "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",        "value": "$AWS_DEFAULT_REGION" },
-              { "name": "HOTEL_SERVICE_URL", "value": "http://$ALB_DNS" }
+              { "name": "APP_MODE",             "value": "aws" },
+              { "name": "PORT",                 "value": "3003" },
+              { "name": "DB_HOST",              "value": "$DB_HOST" },
+              { "name": "DB_PORT",              "value": "3306" },
+              { "name": "DB_USER",              "value": "admin" },
+              { "name": "DB_NAME",              "value": "booking_db" },
+              { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
+              { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS" },
+              { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+            ],
+            "secrets": [
+              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Booking-Service:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Booking-Service:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -198,18 +209,21 @@ phases:
             "image": "$ECR_REGISTRY/review-service:$REVIEW_TAG",
             "portMappings": [{ "containerPort": 3004, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",            "value": "aws" },
-              { "name": "PORT",                "value": "3004" },
-              { "name": "DB_HOST",             "value": "$DB_HOST" },
-              { "name": "DB_PORT",             "value": "3306" },
+              { "name": "APP_MODE",             "value": "aws" },
+              { "name": "PORT",                 "value": "3004" },
+              { "name": "DB_HOST",              "value": "$DB_HOST" },
+              { "name": "DB_PORT",              "value": "3306" },
               { "name": "DB_USER",             "value": "admin" },
-              { "name": "DB_PASSWORD",         "value": "$DB_PASSWORD" },
-              { "name": "DB_NAME",             "value": "review_db" },
-              { "name": "JWT_SECRET",          "value": "$JWT_SECRET" },
-              { "name": "INTERNAL_SECRET",     "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",          "value": "$AWS_DEFAULT_REGION" },
-              { "name": "BOOKING_SERVICE_URL", "value": "http://$ALB_DNS" },
-              { "name": "HOTEL_SERVICE_URL",   "value": "http://$ALB_DNS" }
+              { "name": "DB_NAME",              "value": "review_db" },
+              { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
+              { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS" },
+              { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS" },
+              { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+            ],
+            "secrets": [
+              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Review-Service:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Review-Service:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -238,17 +252,20 @@ phases:
             "image": "$ECR_REGISTRY/support-service:$SUPPORT_TAG",
             "portMappings": [{ "containerPort": 3005, "protocol": "tcp" }],
             "environment": [
-              { "name": "APP_MODE",          "value": "aws" },
-              { "name": "PORT",              "value": "3005" },
-              { "name": "DB_HOST",           "value": "$DB_HOST" },
-              { "name": "DB_PORT",           "value": "3306" },
-              { "name": "DB_USER",           "value": "admin" },
-              { "name": "DB_PASSWORD",       "value": "$DB_PASSWORD" },
-              { "name": "DB_NAME",           "value": "support_db" },
-              { "name": "JWT_SECRET",        "value": "$JWT_SECRET" },
-              { "name": "INTERNAL_SECRET",   "value": "$INTERNAL_SECRET" },
-              { "name": "AWS_REGION",        "value": "$AWS_DEFAULT_REGION" },
-              { "name": "S3_UPLOADS_BUCKET", "value": "$S3_UPLOADS_BUCKET" }
+              { "name": "APP_MODE",             "value": "aws" },
+              { "name": "PORT",                 "value": "3005" },
+              { "name": "DB_HOST",              "value": "$DB_HOST" },
+              { "name": "DB_PORT",              "value": "3306" },
+              { "name": "DB_USER",              "value": "admin" },
+              { "name": "DB_NAME",              "value": "support_db" },
+              { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
+              { "name": "S3_UPLOADS_BUCKET",    "value": "$S3_UPLOADS_BUCKET" },
+              { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+            ],
+            "secrets": [
+              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Support-Service:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Support-Service:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",

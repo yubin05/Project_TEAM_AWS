@@ -86,14 +86,14 @@ resource "aws_iam_role" "ecs_task" {
   tags = { Name = "ThreeTier-ECS-Task-Role" }
 }
 
-resource "aws_iam_role_policy" "ecs_task_secrets" {
-  role = aws_iam_role.ecs_task.id
+resource "aws_iam_role_policy" "ecs_task_execution_secrets" {
+  role = aws_iam_role.ecs_task_execution.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
-      Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:travel-app/*"
+      Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:Travel-*"
     }]
   })
 }
@@ -113,6 +113,22 @@ resource "aws_iam_role_policy" "ecs_task_s3" {
 resource "aws_iam_role_policy_attachment" "ecs_task_sqs" {
   role       = aws_iam_role.ecs_task.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+}
+
+resource "aws_iam_role_policy" "ecs_task_cognito" {
+  role = aws_iam_role.ecs_task.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "cognito-idp:AdminConfirmSignUp",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminSetUserPassword"
+      ]
+      Resource = "arn:aws:cognito-idp:${var.aws_region}:*:userpool/*"
+    }]
+  })
 }
 
 # resource "aws_iam_role_policy_attachment" "ecs_task_dynamodb" {
