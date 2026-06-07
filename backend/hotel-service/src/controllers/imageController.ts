@@ -1,24 +1,10 @@
 import { Request, Response } from 'express';
-import { config, isLocal } from '../config';
+import { config } from '../config';
 import logger from '../utils/logger';
-
-let getSignedUrl: any;
-let PutObjectCommand: any;
-let S3Client: any;
-
-if (!isLocal) {
-  const s3Mod      = require('@aws-sdk/client-s3');
-  const presignMod = require('@aws-sdk/s3-request-presigner');
-  S3Client         = s3Mod.S3Client;
-  PutObjectCommand = s3Mod.PutObjectCommand;
-  getSignedUrl     = presignMod.getSignedUrl;
-}
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export async function getImageUploadUrl(req: Request, res: Response): Promise<void> {
-  if (isLocal) {
-    res.status(503).json({ success: false, message: '이미지 업로드는 AWS 환경에서만 지원됩니다.' });
-    return;
-  }
   if (!config.s3.imagesBucket) {
     res.status(503).json({ success: false, message: 'S3 이미지 버킷이 설정되지 않았습니다.' });
     return;

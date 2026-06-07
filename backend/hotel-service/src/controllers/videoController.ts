@@ -1,28 +1,13 @@
 import { Request, Response } from 'express';
 import { RowDataPacket } from 'mysql2';
 import pool from '../models/pool';
-import { config, isLocal } from '../config';
+import { config } from '../config';
 import { Hotel } from '../types';
 import logger from '../utils/logger';
-
-let getSignedUrl: any;
-let PutObjectCommand: any;
-let S3Client: any;
-
-if (!isLocal) {
-  const s3Mod      = require('@aws-sdk/client-s3');
-  const presignMod = require('@aws-sdk/s3-request-presigner');
-  S3Client         = s3Mod.S3Client;
-  PutObjectCommand = s3Mod.PutObjectCommand;
-  getSignedUrl     = presignMod.getSignedUrl;
-}
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export async function getVideoUploadUrl(req: Request, res: Response): Promise<void> {
-  if (isLocal) {
-    res.status(503).json({ success: false, message: '영상 업로드는 AWS 환경에서만 지원됩니다.' });
-    return;
-  }
-
   try {
     const { id } = req.params;
 
