@@ -37,6 +37,28 @@ resource "aws_cloudwatch_log_group" "support" {
   retention_in_days = 30
 }
 
+# ── Secrets Manager (보안 담당자가 미리 생성한 시크릿 조회) ─────────────────────
+# secrets[].valueFrom에 JSON 키(:KEY::)를 지정하려면 친근한 이름이 아닌 전체 ARN이 필요함
+data "aws_secretsmanager_secret" "auth" {
+  name = "Travel-Auth-Service"
+}
+
+data "aws_secretsmanager_secret" "hotel" {
+  name = "Travel-Hotel-Service"
+}
+
+data "aws_secretsmanager_secret" "booking" {
+  name = "Travel-Booking-Service"
+}
+
+data "aws_secretsmanager_secret" "review" {
+  name = "Travel-Review-Service"
+}
+
+data "aws_secretsmanager_secret" "support" {
+  name = "Travel-Support-Service"
+}
+
 # ── Task Definitions ──────────────────────────────────────────────────────────
 # NOTE: ECR 이미지는 CodePipeline으로 푸시한 후 ECS 서비스가 정상 기동됩니다.
 
@@ -65,8 +87,8 @@ resource "aws_ecs_task_definition" "auth" {
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
     secrets = [
-      { name = "DB_PASSWORD",     valueFrom = "Travel-Auth-Service:DB_PASSWORD::" },
-      { name = "INTERNAL_SECRET", valueFrom = "Travel-Auth-Service:INTERNAL_SECRET::" }
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.auth.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.auth.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -107,10 +129,10 @@ resource "aws_ecs_task_definition" "hotel" {
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
     secrets = [
-      { name = "DB_PASSWORD",             valueFrom = "Travel-Hotel-Service:DB_PASSWORD::" },
-      { name = "INTERNAL_SECRET",         valueFrom = "Travel-Hotel-Service:INTERNAL_SECRET::" },
-      { name = "AZURE_TRANSLATOR_KEY",    valueFrom = "Travel-Hotel-Service:AZURE_TRANSLATOR_KEY::" },
-      { name = "LAMBDA_CALLBACK_SECRET",  valueFrom = "Travel-Hotel-Service:LAMBDA_CALLBACK_SECRET::" }
+      { name = "DB_PASSWORD",             valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET",         valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:INTERNAL_SECRET::" },
+      { name = "AZURE_TRANSLATOR_KEY",    valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:AZURE_TRANSLATOR_KEY::" },
+      { name = "LAMBDA_CALLBACK_SECRET",  valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:LAMBDA_CALLBACK_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -149,8 +171,8 @@ resource "aws_ecs_task_definition" "booking" {
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
     secrets = [
-      { name = "DB_PASSWORD",     valueFrom = "Travel-Booking-Service:DB_PASSWORD::" },
-      { name = "INTERNAL_SECRET", valueFrom = "Travel-Booking-Service:INTERNAL_SECRET::" }
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.booking.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.booking.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -190,8 +212,8 @@ resource "aws_ecs_task_definition" "review" {
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
     secrets = [
-      { name = "DB_PASSWORD",     valueFrom = "Travel-Review-Service:DB_PASSWORD::" },
-      { name = "INTERNAL_SECRET", valueFrom = "Travel-Review-Service:INTERNAL_SECRET::" }
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.review.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.review.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -230,8 +252,8 @@ resource "aws_ecs_task_definition" "support" {
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
     secrets = [
-      { name = "DB_PASSWORD",     valueFrom = "Travel-Support-Service:DB_PASSWORD::" },
-      { name = "INTERNAL_SECRET", valueFrom = "Travel-Support-Service:INTERNAL_SECRET::" }
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.support.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.support.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"

@@ -40,6 +40,14 @@ phases:
           "$(resolve_tag support-service)" > /tmp/svc_tags.sh
       - source /tmp/svc_tags.sh
       - echo "auth=$AUTH_TAG hotel=$HOTEL_TAG booking=$BOOKING_TAG review=$REVIEW_TAG support=$SUPPORT_TAG"
+      - |
+        # secrets[].valueFrom에서 JSON 키(:KEY::)를 참조하려면 친근한 이름이 아닌 전체 ARN이 필요함
+        # post_build 단계의 taskdef.json 생성에서도 써야 하므로 export로 영속화
+        export AUTH_SECRET_ARN=$(aws secretsmanager describe-secret --secret-id Travel-Auth-Service --query ARN --output text)
+        export HOTEL_SECRET_ARN=$(aws secretsmanager describe-secret --secret-id Travel-Hotel-Service --query ARN --output text)
+        export BOOKING_SECRET_ARN=$(aws secretsmanager describe-secret --secret-id Travel-Booking-Service --query ARN --output text)
+        export REVIEW_SECRET_ARN=$(aws secretsmanager describe-secret --secret-id Travel-Review-Service --query ARN --output text)
+        export SUPPORT_SECRET_ARN=$(aws secretsmanager describe-secret --secret-id Travel-Support-Service --query ARN --output text)
 
   build:
     commands:
@@ -91,8 +99,8 @@ phases:
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
             "secrets": [
-              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Auth-Service:DB_PASSWORD::" },
-              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Auth-Service:INTERNAL_SECRET::" }
+              { "name": "DB_PASSWORD",     "valueFrom": "$AUTH_SECRET_ARN:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "$AUTH_SECRET_ARN:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -135,10 +143,10 @@ phases:
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
             "secrets": [
-              { "name": "DB_PASSWORD",            "valueFrom": "Travel-Hotel-Service:DB_PASSWORD::" },
-              { "name": "INTERNAL_SECRET",        "valueFrom": "Travel-Hotel-Service:INTERNAL_SECRET::" },
-              { "name": "AZURE_TRANSLATOR_KEY",   "valueFrom": "Travel-Hotel-Service:AZURE_TRANSLATOR_KEY::" },
-              { "name": "LAMBDA_CALLBACK_SECRET", "valueFrom": "Travel-Hotel-Service:LAMBDA_CALLBACK_SECRET::" }
+              { "name": "DB_PASSWORD",            "valueFrom": "$HOTEL_SECRET_ARN:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET",        "valueFrom": "$HOTEL_SECRET_ARN:INTERNAL_SECRET::" },
+              { "name": "AZURE_TRANSLATOR_KEY",   "valueFrom": "$HOTEL_SECRET_ARN:AZURE_TRANSLATOR_KEY::" },
+              { "name": "LAMBDA_CALLBACK_SECRET", "valueFrom": "$HOTEL_SECRET_ARN:LAMBDA_CALLBACK_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -179,8 +187,8 @@ phases:
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
             "secrets": [
-              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Booking-Service:DB_PASSWORD::" },
-              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Booking-Service:INTERNAL_SECRET::" }
+              { "name": "DB_PASSWORD",     "valueFrom": "$BOOKING_SECRET_ARN:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "$BOOKING_SECRET_ARN:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -222,8 +230,8 @@ phases:
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
             "secrets": [
-              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Review-Service:DB_PASSWORD::" },
-              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Review-Service:INTERNAL_SECRET::" }
+              { "name": "DB_PASSWORD",     "valueFrom": "$REVIEW_SECRET_ARN:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "$REVIEW_SECRET_ARN:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
@@ -264,8 +272,8 @@ phases:
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
             "secrets": [
-              { "name": "DB_PASSWORD",     "valueFrom": "Travel-Support-Service:DB_PASSWORD::" },
-              { "name": "INTERNAL_SECRET", "valueFrom": "Travel-Support-Service:INTERNAL_SECRET::" }
+              { "name": "DB_PASSWORD",     "valueFrom": "$SUPPORT_SECRET_ARN:DB_PASSWORD::" },
+              { "name": "INTERNAL_SECRET", "valueFrom": "$SUPPORT_SECRET_ARN:INTERNAL_SECRET::" }
             ],
             "logConfiguration": {
               "logDriver": "awslogs",
