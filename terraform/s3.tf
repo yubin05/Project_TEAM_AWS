@@ -15,6 +15,29 @@ resource "aws_s3_bucket_lifecycle_configuration" "uploads" {
   }
 }
 
+# hotels/ 경로는 공개 읽기 허용 (호텔 이미지 표시용)
+resource "aws_s3_bucket_policy" "uploads_hotels_public" {
+  bucket = aws_s3_bucket.uploads.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = "*"
+      Action    = "s3:GetObject"
+      Resource  = "${aws_s3_bucket.uploads.arn}/hotels/*"
+    }]
+  })
+  depends_on = [aws_s3_bucket_public_access_block.uploads]
+}
+
+resource "aws_s3_bucket_public_access_block" "uploads" {
+  bucket                  = aws_s3_bucket.uploads.id
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
+}
+
 resource "aws_s3_bucket_cors_configuration" "uploads" {
   bucket = aws_s3_bucket.uploads.id
   cors_rule {

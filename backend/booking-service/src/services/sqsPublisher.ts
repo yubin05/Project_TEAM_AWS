@@ -1,4 +1,4 @@
-import { config, isLocal } from '../config';
+import { config } from '../config';
 import logger from '../utils/logger';
 
 export interface BookingNotificationMessage {
@@ -18,13 +18,7 @@ export async function publishBookingNotification(msg: BookingNotificationMessage
   try {
     const { SQSClient, SendMessageCommand } = require('@aws-sdk/client-sqs');
 
-    const clientOptions: Record<string, unknown> = { region: config.sqs.region };
-    if (isLocal) {
-      clientOptions.endpoint    = config.sqs.endpoint;
-      clientOptions.credentials = { accessKeyId: 'local', secretAccessKey: 'local' };
-    }
-
-    const client = new SQSClient(clientOptions);
+    const client = new SQSClient({ region: config.sqs.region });
     await client.send(new SendMessageCommand({
       QueueUrl:    config.sqs.queueUrl,
       MessageBody: JSON.stringify(msg),

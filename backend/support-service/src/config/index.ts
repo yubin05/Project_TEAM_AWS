@@ -8,8 +8,10 @@ export const config = {
     password: process.env.DB_PASSWORD || 'localpassword',
     name:     process.env.DB_NAME     || 'support_db',
   },
-  jwt: {
-    secret: process.env.JWT_SECRET || 'local-dev-secret-key-2024',
+  cognito: {
+    userPoolId: process.env.COGNITO_USER_POOL_ID || '',
+    clientId:   process.env.COGNITO_CLIENT_ID   || '',
+    region:     process.env.AWS_REGION          || 'ap-northeast-2',
   },
   internal: {
     secret: process.env.INTERNAL_SECRET || 'local-internal-secret',
@@ -23,4 +25,3 @@ export const config = {
   },
 };
 
-export async function loadSecrets(): Promise<void> {}

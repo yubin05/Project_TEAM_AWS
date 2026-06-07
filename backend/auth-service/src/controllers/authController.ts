@@ -1,11 +1,19 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
-import { RowDataPacket, ResultSetHeader } from 'mysql2';
+import {
+  CognitoIdentityProviderClient,
+  InitiateAuthCommand,
+  SignUpCommand,
+  AdminConfirmSignUpCommand,
+  ChangePasswordCommand,
+} from '@aws-sdk/client-cognito-identity-provider';
+import { RowDataPacket } from 'mysql2';
 import pool from '../models/pool';
-import { generateToken } from '../middleware/auth';
 import { User } from '../types';
 import logger from '../utils/logger';
+import { config } from '../config';
+
+const cognito = new CognitoIdentityProviderClient({ region: config.cognito.region });
 
 export async function register(req: Request, res: Response): Promise<void> {
   try {
@@ -15,36 +23,51 @@ export async function register(req: Request, res: Response): Promise<void> {
       res.status(400).json({ success: false, message: '이메일, 비밀번호, 이름은 필수입니다.' });
       return;
     }
-    if (password.length < 6) {
-      res.status(400).json({ success: false, message: '비밀번호는 6자 이상이어야 합니다.' });
+    if (password.length < 8) {
+      res.status(400).json({ success: false, message: '비밀번호는 8자 이상이어야 합니다.' });
       return;
     }
 
-    const [existing] = await pool.query<RowDataPacket[]>(
-      'SELECT id FROM users WHERE email = ?', [email]
-    );
-    if ((existing as RowDataPacket[]).length > 0) {
-      res.status(409).json({ success: false, message: '이미 사용 중인 이메일입니다.' });
-      return;
-    }
+    const userRole = role === 'host' ? 'host' : 'user';
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userId         = uuidv4();
-    const userRole       = role === 'host' ? 'host' : 'user';
+    const signUpResult = await cognito.send(new SignUpCommand({
+      ClientId: config.cognito.clientId,
+      Username: email,
+      Password: password,
+      UserAttributes: [
+        { Name: 'email',       Value: email },
+        { Name: 'name',        Value: name },
+        { Name: 'custom:role', Value: userRole },
+      ],
+    }));
 
-    await pool.query<ResultSetHeader>(
+    const cognitoSub = signUpResult.UserSub!;
+
+    await cognito.send(new AdminConfirmSignUpCommand({
+      UserPoolId: config.cognito.userPoolId,
+      Username:   email,
+    }));
+
+    await pool.query(
       'INSERT INTO users (id, email, password, name, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, email, hashedPassword, name, phone || null, userRole]
+      [cognitoSub, email, uuidv4(), name, phone || null, userRole]
     );
 
-    const token = generateToken({ userId, email, role: userRole, name });
     res.status(201).json({
       success: true,
       message: '회원가입이 완료되었습니다.',
-      data: { token, user: { id: userId, email, name, role: userRole } },
+      data: { user: { id: cognitoSub, email, name, role: userRole } },
     });
-  } catch (error) {
-    logger.error('Register error', { error });
+  } catch (error: any) {
+    if (error.name === 'UsernameExistsException') {
+      res.status(409).json({ success: false, message: '이미 사용 중인 이메일입니다.' });
+      return;
+    }
+    if (error.name === 'InvalidPasswordException') {
+      res.status(400).json({ success: false, message: '비밀번호가 정책을 만족하지 않습니다.' });
+      return;
+    }
+    logger.error('Register error', { error: error.message });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -58,32 +81,45 @@ export async function login(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    const result = await cognito.send(new InitiateAuthCommand({
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      ClientId: config.cognito.clientId,
+      AuthParameters: {
+        USERNAME: email,
+        PASSWORD: password,
+      },
+    }));
+
+    const accessToken = result.AuthenticationResult?.AccessToken;
+    if (!accessToken) {
+      res.status(401).json({ success: false, message: '로그인에 실패했습니다.' });
+      return;
+    }
+
     const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT * FROM users WHERE email = ?', [email]
+      'SELECT id, email, name, role, profile_image FROM users WHERE email = ?',
+      [email]
     );
     const user = (rows as RowDataPacket[])[0] as User | undefined;
     if (!user) {
-      res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 잘못되었습니다.' });
+      res.status(401).json({ success: false, message: '사용자 정보를 찾을 수 없습니다.' });
       return;
     }
 
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 잘못되었습니다.' });
-      return;
-    }
-
-    const token = generateToken({ userId: user.id, email: user.email, role: user.role, name: user.name });
     res.json({
       success: true,
       message: '로그인 성공',
       data: {
-        token,
+        token: accessToken,
         user: { id: user.id, email: user.email, name: user.name, role: user.role, profile_image: user.profile_image },
       },
     });
-  } catch (error) {
-    logger.error('Login error', { error });
+  } catch (error: any) {
+    if (error.name === 'NotAuthorizedException' || error.name === 'UserNotFoundException') {
+      res.status(401).json({ success: false, message: '이메일 또는 비밀번호가 잘못되었습니다.' });
+      return;
+    }
+    logger.error('Login error', { error: error.message });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
@@ -124,35 +160,33 @@ export async function changePassword(req: Request, res: Response): Promise<void>
   try {
     const { current_password, new_password } = req.body;
 
-    const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT * FROM users WHERE id = ?', [req.user!.userId]
-    );
-    const user = (rows as RowDataPacket[])[0] as User | undefined;
-    if (!user) {
-      res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다.' });
+    if (new_password.length < 8) {
+      res.status(400).json({ success: false, message: '새 비밀번호는 8자 이상이어야 합니다.' });
       return;
     }
 
-    const isValid = await bcrypt.compare(current_password, user.password);
-    if (!isValid) {
+    const accessToken = req.headers['authorization']?.split(' ')[1];
+    await cognito.send(new ChangePasswordCommand({
+      AccessToken:      accessToken,
+      PreviousPassword: current_password,
+      ProposedPassword: new_password,
+    }));
+
+    res.json({ success: true, message: '비밀번호가 변경되었습니다.' });
+  } catch (error: any) {
+    if (error.name === 'NotAuthorizedException') {
       res.status(401).json({ success: false, message: '현재 비밀번호가 잘못되었습니다.' });
       return;
     }
-    if (new_password.length < 6) {
-      res.status(400).json({ success: false, message: '새 비밀번호는 6자 이상이어야 합니다.' });
+    if (error.name === 'InvalidPasswordException') {
+      res.status(400).json({ success: false, message: '새 비밀번호는 8자 이상이며 대문자, 소문자, 숫자, 특수문자를 모두 포함해야 합니다.' });
       return;
     }
-
-    const hashed = await bcrypt.hash(new_password, 10);
-    await pool.query('UPDATE users SET password = ? WHERE id = ?', [hashed, req.user!.userId]);
-    res.json({ success: true, message: '비밀번호가 변경되었습니다.' });
-  } catch (error) {
-    logger.error('Change password error', { error });
+    logger.error('Change password error', { error: error.message });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });
   }
 }
 
-// 내부 서비스 전용: 사용자 정보 조회 (x-internal-secret 필요)
 export async function getInternalUser(req: Request, res: Response): Promise<void> {
   try {
     const { id } = req.params;

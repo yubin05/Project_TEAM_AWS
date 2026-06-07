@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import jwt from 'jsonwebtoken';
+import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import pool from '../models/pool';
@@ -9,23 +9,33 @@ import { config } from '../config';
 const router = Router();
 const s3 = config.s3.bucket ? new S3Client({ region: config.s3.region }) : null;
 
-function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+const cognitoVerifier = CognitoJwtVerifier.create({
+  userPoolId: config.cognito.userPoolId,
+  tokenUse:   'access',
+  clientId:   config.cognito.clientId,
+});
+
+async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
   const auth = req.headers['authorization'];
   if (!auth || !auth.startsWith('Bearer ')) {
     res.status(401).json({ success: false, message: '인증이 필요합니다.' });
     return;
   }
   try {
-    const payload = jwt.verify(auth.slice(7), config.jwt.secret) as any;
-    (req as any).user = payload;
+    const payload = await cognitoVerifier.verify(auth.slice(7)) as any;
+    (req as any).user = {
+      userId: payload.sub,
+      email:  payload.email ?? '',
+      role:   payload['custom:role'] ?? 'user',
+    };
     next();
   } catch {
     res.status(401).json({ success: false, message: '유효하지 않은 토큰입니다.' });
   }
 }
 
-function adminMiddleware(req: Request, res: Response, next: NextFunction): void {
-  authMiddleware(req, res, () => {
+async function adminMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  await authMiddleware(req, res, () => {
     const user = (req as any).user;
     if (user?.role !== 'admin' && user?.role !== 'host') {
       res.status(403).json({ success: false, message: '권한이 없습니다.' });

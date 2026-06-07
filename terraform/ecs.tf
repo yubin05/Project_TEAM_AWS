@@ -37,6 +37,28 @@ resource "aws_cloudwatch_log_group" "support" {
   retention_in_days = 30
 }
 
+# ── Secrets Manager (보안 담당자가 미리 생성한 시크릿 조회) ─────────────────────
+# secrets[].valueFrom에 JSON 키(:KEY::)를 지정하려면 친근한 이름이 아닌 전체 ARN이 필요함
+data "aws_secretsmanager_secret" "auth" {
+  name = "Travel-Auth-Service"
+}
+
+data "aws_secretsmanager_secret" "hotel" {
+  name = "Travel-Hotel-Service"
+}
+
+data "aws_secretsmanager_secret" "booking" {
+  name = "Travel-Booking-Service"
+}
+
+data "aws_secretsmanager_secret" "review" {
+  name = "Travel-Review-Service"
+}
+
+data "aws_secretsmanager_secret" "support" {
+  name = "Travel-Support-Service"
+}
+
 # ── Task Definitions ──────────────────────────────────────────────────────────
 # NOTE: ECR 이미지는 CodePipeline으로 푸시한 후 ECS 서비스가 정상 기동됩니다.
 
@@ -47,25 +69,26 @@ resource "aws_ecs_task_definition" "auth" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "auth-service"
     image = "${aws_ecr_repository.auth.repository_url}:latest"
     portMappings = [{ containerPort = 3001, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",        value = "local" },
-      { name = "PORT",            value = "3001" },
-      { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",         value = "3306" },
-      { name = "DB_USER",         value = "admin" },
-      { name = "DB_PASSWORD",     value = var.db_password },
-      { name = "DB_NAME",         value = "auth_db" },
-      { name = "JWT_SECRET",      value = var.jwt_secret },
-      { name = "INTERNAL_SECRET", value = var.internal_secret },
-      { name = "AWS_REGION",      value = var.aws_region }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3001" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "auth_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.auth.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.auth.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -85,27 +108,31 @@ resource "aws_ecs_task_definition" "hotel" {
   cpu                      = 512
   memory                   = 1024
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "hotel-service"
     image = "${aws_ecr_repository.hotel.repository_url}:latest"
     portMappings = [{ containerPort = 3002, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",            value = "local" },
-      { name = "PORT",                value = "3002" },
-      { name = "DB_HOST",             value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",             value = "3306" },
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3002" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
       { name = "DB_USER",             value = "admin" },
-      { name = "DB_PASSWORD",         value = var.db_password },
-      { name = "DB_NAME",             value = "hotel_db" },
-      { name = "JWT_SECRET",          value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",     value = var.internal_secret },
-      { name = "AWS_REGION",          value = var.aws_region },
-      { name = "BOOKING_SERVICE_URL", value = "http://${aws_lb.internal.dns_name}" },
-      { name = "REVIEW_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" }
+      { name = "DB_NAME",              value = "hotel_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "S3_IMAGES_BUCKET",     value = aws_s3_bucket.uploads.id },
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}:3003" },
+      { name = "REVIEW_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}:3004" },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",             valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET",         valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:INTERNAL_SECRET::" },
+      { name = "AZURE_TRANSLATOR_KEY",    valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:AZURE_TRANSLATOR_KEY::" },
+      { name = "LAMBDA_CALLBACK_SECRET",  valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:LAMBDA_CALLBACK_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -125,27 +152,27 @@ resource "aws_ecs_task_definition" "booking" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "booking-service"
     image = "${aws_ecr_repository.booking.repository_url}:latest"
     portMappings = [{ containerPort = 3003, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",              value = "local" },
-      { name = "PORT",                  value = "3003" },
-      { name = "DB_HOST",               value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",               value = "3306" },
-      { name = "DB_USER",               value = "admin" },
-      { name = "DB_PASSWORD",           value = var.db_password },
-      { name = "DB_NAME",               value = "booking_db" },
-      { name = "JWT_SECRET",            value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",       value = var.internal_secret },
-      { name = "AWS_REGION",            value = var.aws_region },
-      { name = "HOTEL_SERVICE_URL",     value = "http://${aws_lb.internal.dns_name}" },
-      { name = "SQS_BOOKING_QUEUE_URL", value = aws_sqs_queue.booking_queue.url }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3003" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "booking_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}:3002" },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.booking.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.booking.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -165,28 +192,28 @@ resource "aws_ecs_task_definition" "review" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  # TODO: Secrets Manager 설정 완료 후 아래 작업 필요
-  # 1. task_role_arn 주석 해제 (aws_iam_role.ecs_task 리소스 복구 필요)
-  # 2. APP_MODE = "local" → "aws" 로 변경 (4개 서비스 모두)
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "review-service"
     image = "${aws_ecr_repository.review.repository_url}:latest"
     portMappings = [{ containerPort = 3004, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",             value = "local" },
+      { name = "APP_MODE",             value = "aws" },
       { name = "PORT",                 value = "3004" },
       { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
       { name = "DB_PORT",              value = "3306" },
       { name = "DB_USER",              value = "admin" },
-      { name = "DB_PASSWORD",          value = var.db_password },
       { name = "DB_NAME",              value = "review_db" },
-      { name = "JWT_SECRET",           value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",      value = var.internal_secret },
       { name = "AWS_REGION",           value = var.aws_region },
-      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" },
-      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}" },
-      { name = "SQS_RATING_QUEUE_URL", value = aws_sqs_queue.rating_queue.url }
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}:3003" },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}:3002" },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.review.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.review.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -206,24 +233,27 @@ resource "aws_ecs_task_definition" "support" {
   cpu                      = 256
   memory                   = 512
   execution_role_arn       = aws_iam_role.ecs_task_execution.arn
-  task_role_arn            = aws_iam_role.ecs_task_support.arn
+  task_role_arn            = aws_iam_role.ecs_task.arn
 
   container_definitions = jsonencode([{
     name  = "support-service"
     image = "${aws_ecr_repository.support.repository_url}:latest"
     portMappings = [{ containerPort = 3005, protocol = "tcp" }]
     environment = [
-      { name = "APP_MODE",        value = "local" },
-      { name = "PORT",            value = "3005" },
-      { name = "DB_HOST",         value = aws_rds_cluster.main.endpoint },
-      { name = "DB_PORT",         value = "3306" },
-      { name = "DB_USER",         value = "admin" },
-      { name = "DB_PASSWORD",     value = var.db_password },
-      { name = "DB_NAME",         value = "support_db" },
-      { name = "JWT_SECRET",        value = var.jwt_secret },
-      { name = "INTERNAL_SECRET",   value = var.internal_secret },
-      { name = "AWS_REGION",        value = var.aws_region },
-      { name = "S3_UPLOADS_BUCKET", value = aws_s3_bucket.uploads.id }
+      { name = "APP_MODE",             value = "aws" },
+      { name = "PORT",                 value = "3005" },
+      { name = "DB_HOST",              value = aws_rds_cluster.main.endpoint },
+      { name = "DB_PORT",              value = "3306" },
+      { name = "DB_USER",              value = "admin" },
+      { name = "DB_NAME",              value = "support_db" },
+      { name = "AWS_REGION",           value = var.aws_region },
+      { name = "S3_UPLOADS_BUCKET",    value = aws_s3_bucket.uploads.id },
+      { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+    ]
+    secrets = [
+      { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.support.arn}:DB_PASSWORD::" },
+      { name = "INTERNAL_SECRET", valueFrom = "${data.aws_secretsmanager_secret.support.arn}:INTERNAL_SECRET::" }
     ]
     logConfiguration = {
       logDriver = "awslogs"
