@@ -143,13 +143,13 @@ export async function createHotel(req: Request, res: Response): Promise<void> {
     const hotelId = uuidv4();
     await pool.query(
       `INSERT INTO hotels (id, host_id, name, description, category, address, city, region,
-        latitude, longitude, amenities, images, check_in_time, check_out_time)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        latitude, longitude, amenities, images, check_in_time, check_out_time, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         hotelId, req.user!.userId, name, description, category,
         address, city, region, latitude ?? null, longitude ?? null,
         JSON.stringify(amenities), JSON.stringify(images),
-        check_in_time, check_out_time,
+        check_in_time, check_out_time, 1,
       ]
     );
 
