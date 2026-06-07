@@ -123,8 +123,8 @@ resource "aws_ecs_task_definition" "hotel" {
       { name = "DB_NAME",              value = "hotel_db" },
       { name = "AWS_REGION",           value = var.aws_region },
       { name = "S3_IMAGES_BUCKET",     value = aws_s3_bucket.uploads.id },
-      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" },
-      { name = "REVIEW_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}" },
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}:3003" },
+      { name = "REVIEW_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}:3004" },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
@@ -166,7 +166,7 @@ resource "aws_ecs_task_definition" "booking" {
       { name = "DB_USER",              value = "admin" },
       { name = "DB_NAME",              value = "booking_db" },
       { name = "AWS_REGION",           value = var.aws_region },
-      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}" },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}:3002" },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]
@@ -206,8 +206,8 @@ resource "aws_ecs_task_definition" "review" {
       { name = "DB_USER",              value = "admin" },
       { name = "DB_NAME",              value = "review_db" },
       { name = "AWS_REGION",           value = var.aws_region },
-      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}" },
-      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}" },
+      { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}:3003" },
+      { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}:3002" },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
     ]

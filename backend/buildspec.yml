@@ -136,9 +136,9 @@ phases:
               { "name": "DB_USER",              "value": "admin" },
               { "name": "DB_NAME",              "value": "hotel_db" },
               { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
-              { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS" },
+              { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS:3003" },
               { "name": "S3_IMAGES_BUCKET",     "value": "$S3_IMAGES_BUCKET" },
-              { "name": "REVIEW_SERVICE_URL",   "value": "http://$ALB_DNS" },
+              { "name": "REVIEW_SERVICE_URL",   "value": "http://$ALB_DNS:3004" },
               { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
@@ -182,7 +182,7 @@ phases:
               { "name": "DB_USER",              "value": "admin" },
               { "name": "DB_NAME",              "value": "booking_db" },
               { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
-              { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS" },
+              { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS:3002" },
               { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
@@ -224,8 +224,8 @@ phases:
               { "name": "DB_USER",             "value": "admin" },
               { "name": "DB_NAME",              "value": "review_db" },
               { "name": "AWS_REGION",           "value": "$AWS_DEFAULT_REGION" },
-              { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS" },
-              { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS" },
+              { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS:3003" },
+              { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS:3002" },
               { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
               { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
             ],
