@@ -376,7 +376,7 @@ export async function getInternalRoom(req: Request, res: Response): Promise<void
         host_id:       hotel.host_id,
         hotel_name:    hotel.name,
         hotel_address: hotel.address,
-        hotel_images:  hotel.images,
+        hotel_images:  typeof hotel.images === 'string' ? JSON.parse(hotel.images) : hotel.images,
         is_available:  Boolean(room.is_available),
       },
     });
