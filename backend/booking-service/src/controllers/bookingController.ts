@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { RowDataPacket } from 'mysql2';
 import pool from '../models/pool';
 import { getInternalRoom } from '../clients/hotelClient';
+import { getInternalUser } from '../clients/authClient';
 import { publishBookingNotification } from '../services/sqsPublisher';
 import { Booking } from '../types';
 import logger from '../utils/logger';
@@ -84,18 +85,21 @@ export async function createBooking(req: Request, res: Response): Promise<void> 
     });
 
     // SQS 이메일 알림 (응답 후 비동기 발행 — 실패해도 예약에 영향 없음)
-    publishBookingNotification({
-      bookingId,
-      userEmail:  req.user!.email,
-      userName:   req.user!.name || req.user!.email,
-      hotelName:  room.hotel_name,
-      roomName:   room.name,
-      checkIn:    check_in_date,
-      checkOut:   check_out_date,
-      guests:     Number(guests),
-      totalPrice,
-      nights,
-    });
+    // Cognito Access 토큰에는 email/name이 없으므로 auth-service에서 조회
+    getInternalUser(userId)
+      .then(user => publishBookingNotification({
+        bookingId,
+        userEmail:  user.email,
+        userName:   user.name || user.email,
+        hotelName:  room.hotel_name,
+        roomName:   room.name,
+        checkIn:    check_in_date,
+        checkOut:   check_out_date,
+        guests:     Number(guests),
+        totalPrice,
+        nights,
+      }))
+      .catch(error => logger.error('Get internal user for notification error', { error }));
   } catch (error) {
     logger.error('Create booking error', { error });
     res.status(500).json({ success: false, message: '서버 오류가 발생했습니다.' });

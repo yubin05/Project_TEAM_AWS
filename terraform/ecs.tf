@@ -167,6 +167,7 @@ resource "aws_ecs_task_definition" "booking" {
       { name = "DB_NAME",              value = "booking_db" },
       { name = "AWS_REGION",           value = var.aws_region },
       { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}:3002" },
+      { name = "AUTH_SERVICE_URL",     value = "http://${aws_lb.internal.dns_name}:3001" },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
       { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id },
       { name = "SQS_QUEUE_URL",     value = aws_sqs_queue.booking_notification.url }

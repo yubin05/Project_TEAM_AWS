@@ -16,6 +16,7 @@ export const config = {
   internal: {
     secret:       process.env.INTERNAL_SECRET     || 'local-internal-secret',
     hotelService: process.env.HOTEL_SERVICE_URL   || 'http://hotel-service:3002',
+    authService:  process.env.AUTH_SERVICE_URL    || 'http://auth-service:3001',
   },
   sqs: {
     endpoint: process.env.SQS_ENDPOINT   || 'http://elasticmq:9324',
