@@ -35,7 +35,7 @@ async function sendBookingEmail(msg) {
       <table width="600" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
         <tr>
           <td style="background:#ff4f5e;padding:32px;text-align:center">
-            <h1 style="color:#fff;margin:0;font-size:24px">✈️ 야놀자</h1>
+            <h1 style="color:#fff;margin:0;font-size:24px">✈️ Sponge Trip</h1>
             <p style="color:rgba(255,255,255,0.9);margin:8px 0 0;font-size:15px">예약이 확정되었습니다</p>
           </td>
         </tr>
@@ -77,7 +77,7 @@ async function sendBookingEmail(msg) {
         </tr>
         <tr>
           <td style="background:#f5f5f5;padding:16px;text-align:center">
-            <p style="color:#aaa;font-size:12px;margin:0">© 2024 야놀자 Travel. All rights reserved.</p>
+            <p style="color:#aaa;font-size:12px;margin:0">© 2024 Sponge Trip Travel. All rights reserved.</p>
           </td>
         </tr>
       </table>
@@ -90,7 +90,7 @@ async function sendBookingEmail(msg) {
     Source: FROM_EMAIL,
     Destination: { ToAddresses: [userEmail] },
     Message: {
-      Subject: { Data: `[야놀자] ${hotelName} 예약이 확정되었습니다`, Charset: 'UTF-8' },
+      Subject: { Data: `[Sponge Trip] ${hotelName} 예약이 확정되었습니다`, Charset: 'UTF-8' },
       Body: { Html: { Data: html, Charset: 'UTF-8' } },
     },
   }));

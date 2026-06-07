@@ -1,0 +1,8 @@
+{
+  "name": "image-resize",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "sharp": "^0.33.5"
+  }
+}
