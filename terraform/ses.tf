@@ -3,7 +3,7 @@
 # 파일 경로 : terraform/ses.tf
 # 용도      : SES 발신 이메일 Identity 등록 + 설정
 # 선행 조건 : 없음 (독립적으로 생성 가능)
-# 수정 항목 : aws_ses_email_identity.sender의 email 주소
+# 수정 항목 : variables.tf의 ses_sender_email 기본값 (또는 *.tfvars에서 덮어쓰기)
 # ================================================================
 
 # ──────────────────────────────────────────────
@@ -12,7 +12,7 @@
 #    → 메일함에서 "Click to verify" 링크 클릭해야 실제 발송 가능
 # ──────────────────────────────────────────────
 resource "aws_ses_email_identity" "sender" {
-  email = "kimkihyo18@naver.com"
+  email = var.ses_sender_email
 }
 
 # ──────────────────────────────────────────────

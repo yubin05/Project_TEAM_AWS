@@ -84,3 +84,9 @@ variable "alert_email" {
   type        = string
   default     = "your-email@example.com"
 }
+
+variable "ses_sender_email" {
+  description = "SES 발신 이메일 Identity 주소 (예약 알림 메일 발신자)"
+  type        = string
+  default     = "kimkihyo18@naver.com"
+}
