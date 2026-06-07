@@ -355,6 +355,20 @@ function updateAuthUI() {
 }
 
 // ===== Hotels =====
+// 목록/카드용 썸네일 경로로 치환 (Lambda가 hotels/original/* → hotels/thumbnails/* 에 리사이즈본 생성)
+function getThumbnailUrl(url) {
+  return url && url.includes('/hotels/original/') ? url.replace('/hotels/original/', '/hotels/thumbnails/') : url;
+}
+
+// 썸네일 로드 실패 시 원본 → 플레이스홀더 순으로 대체
+function handleImgError(img) {
+  if (img.dataset.original && img.src !== img.dataset.original) {
+    img.src = img.dataset.original;
+  } else if (img.dataset.placeholder) {
+    img.src = img.dataset.placeholder;
+  }
+}
+
 async function loadFeaturedHotels() {
   const container = document.getElementById('featured-hotels');
   if (!container) return;
@@ -368,14 +382,16 @@ async function loadFeaturedHotels() {
 }
 
 function renderHotelCard(hotel) {
-  const img = hotel.images && hotel.images.length > 0 ? hotel.images[0] : 'https://placehold.co/400x300?text=No+Image';
+  const placeholder = 'https://placehold.co/400x300?text=No+Image';
+  const original = hotel.images && hotel.images.length > 0 ? hotel.images[0] : placeholder;
+  const img = getThumbnailUrl(original);
   const discountRate = 10;
   const categoryMap = { hotel: '호텔', motel: '모텔', pension: '펜션', guesthouse: '게스트하우스', resort: '리조트', camping: '캠핑' };
   const minPrice = hotel.min_price ? Math.floor(hotel.min_price) : 0;
   return `
     <div class="hotel-card" data-hotel-id="${hotel.id}">
       <div class="hotel-card-img">
-        <img src="${img}" alt="${hotel.name}" loading="lazy" onerror="this.src='https://placehold.co/400x300?text=No+Image'">
+        <img src="${img}" data-original="${original}" data-placeholder="${placeholder}" alt="${hotel.name}" loading="lazy" onerror="handleImgError(this)">
         <span class="hotel-badge">${categoryMap[hotel.category] || hotel.category}</span>
         <button class="hotel-wish-btn" data-hotel-id="${hotel.id}" onclick="event.stopPropagation(); toggleWishlist('${hotel.id}', this)">${state.wishlistIds.has(hotel.id) ? '❤️' : '🤍'}</button>
       </div>
@@ -434,14 +450,16 @@ async function loadSearchResults(params = {}) {
 }
 
 function renderHotelListCard(hotel) {
-  const img = hotel.images && hotel.images.length > 0 ? hotel.images[0] : 'https://placehold.co/400x300';
+  const placeholder = 'https://placehold.co/400x300';
+  const original = hotel.images && hotel.images.length > 0 ? hotel.images[0] : placeholder;
+  const img = getThumbnailUrl(original);
   const minPrice = hotel.min_price ? Math.floor(hotel.min_price) : 0;
   const amenities = (hotel.amenities || []).slice(0, 4);
   const categoryMap = { hotel: '호텔', motel: '모텔', pension: '펜션', guesthouse: '게스트하우스', resort: '리조트', camping: '캠핑' };
   return `
     <div class="hotel-list-card" data-hotel-id="${hotel.id}">
       <div class="hotel-list-img">
-        <img src="${img}" alt="${hotel.name}" loading="lazy" onerror="this.src='https://placehold.co/400x300'">
+        <img src="${img}" data-original="${original}" data-placeholder="${placeholder}" alt="${hotel.name}" loading="lazy" onerror="handleImgError(this)">
       </div>
       <div class="hotel-list-body">
         <div class="hotel-category">${categoryMap[hotel.category] || hotel.category} · ${hotel.city}</div>
@@ -592,7 +610,9 @@ async function loadHotelDetail(id) {
 }
 
 function renderRoomCard(room, hotel) {
-  const img = room.images && room.images.length > 0 ? room.images[0] : 'https://placehold.co/300x200';
+  const placeholder = 'https://placehold.co/300x200';
+  const original = room.images && room.images.length > 0 ? room.images[0] : placeholder;
+  const img = getThumbnailUrl(original);
   const typeMap = { standard: '스탠다드', deluxe: '디럭스', suite: '스위트', family: '패밀리', dormitory: '도미토리' };
   const price = Math.floor(room.price_per_night);
   const discounted = Math.floor(room.discounted_price || price);
@@ -600,7 +620,7 @@ function renderRoomCard(room, hotel) {
 
   return `
     <div class="room-card">
-      <div class="room-img"><img src="${img}" alt="${room.name}" onerror="this.src='https://placehold.co/300x200'"></div>
+      <div class="room-img"><img src="${img}" data-original="${original}" data-placeholder="${placeholder}" alt="${room.name}" onerror="handleImgError(this)"></div>
       <div class="room-body">
         <span class="room-type-badge">${typeMap[room.type] || room.type}</span>
         <div class="room-name">${room.name}</div>
@@ -691,9 +711,13 @@ async function loadBookingPage(params) {
     state.currentHotel = hotel;
     state.currentRoom = room;
 
+    const summaryPlaceholder = 'https://placehold.co/100x80';
+    const summaryOriginal = room.images && room.images.length > 0 ? room.images[0] : summaryPlaceholder;
+    const summaryImg = getThumbnailUrl(summaryOriginal);
+
     summaryEl.innerHTML = `
       <div style="display:flex;gap:16px;align-items:center">
-        <img src="${room.images[0] || 'https://placehold.co/100x80'}" style="width:100px;height:80px;border-radius:8px;object-fit:cover" onerror="this.src='https://placehold.co/100x80'">
+        <img src="${summaryImg}" data-original="${summaryOriginal}" data-placeholder="${summaryPlaceholder}" style="width:100px;height:80px;border-radius:8px;object-fit:cover" onerror="handleImgError(this)">
         <div>
           <div style="font-weight:700;font-size:1.05rem">${hotel.name}</div>
           <div style="color:var(--text-light);margin:4px 0">${room.name}</div>
@@ -773,7 +797,9 @@ async function loadMyBookings() {
     }
 
     container.innerHTML = bookings.map(b => {
-      const img = b.hotel_images && b.hotel_images.length > 0 ? b.hotel_images[0] : 'https://placehold.co/200x150';
+      const placeholder = 'https://placehold.co/200x150';
+      const original = b.hotel_images && b.hotel_images.length > 0 ? b.hotel_images[0] : placeholder;
+      const img = getThumbnailUrl(original);
       const statusLabels = { confirmed: '확정', pending: '대기중', cancelled: '취소', completed: '완료' };
       const statusClass = `status-${b.status}`;
       const ci = new Date(b.check_in_date).toLocaleDateString('ko-KR');
@@ -782,7 +808,7 @@ async function loadMyBookings() {
       const canReview = b.status === 'confirmed' || b.status === 'completed';
       return `
         <div class="booking-item">
-          <div class="booking-item-img"><img src="${img}" alt="${b.hotel_name}" onerror="this.src='https://placehold.co/200x150'"></div>
+          <div class="booking-item-img"><img src="${img}" data-original="${original}" data-placeholder="${placeholder}" alt="${b.hotel_name}" onerror="handleImgError(this)"></div>
           <div class="booking-item-info">
             <div class="booking-item-title">${b.hotel_name}</div>
             <div style="color:var(--text-light);margin-bottom:4px">${b.room_name}</div>
@@ -1345,7 +1371,9 @@ async function loadAdminHotels() {
 }
 
 function renderAdminHotelCard(hotel) {
-  const img = hotel.images && hotel.images.length > 0 ? hotel.images[0] : 'https://placehold.co/120x90?text=No+Image';
+  const placeholder = 'https://placehold.co/120x90?text=No+Image';
+  const original = hotel.images && hotel.images.length > 0 ? hotel.images[0] : placeholder;
+  const img = getThumbnailUrl(original);
   const categoryMap = { hotel: '호텔', motel: '모텔', pension: '펜션', guesthouse: '게스트하우스', resort: '리조트', camping: '캠핑' };
   const statusBadge = hotel.is_active
     ? '<span class="admin-status-badge active">운영중</span>'
@@ -1354,7 +1382,7 @@ function renderAdminHotelCard(hotel) {
   return `
     <div class="admin-hotel-card" id="admin-hotel-${hotel.id}">
       <div class="admin-hotel-main">
-        <img src="${img}" alt="${hotel.name}" onerror="this.src='https://placehold.co/120x90?text=No+Image'">
+        <img src="${img}" data-original="${original}" data-placeholder="${placeholder}" alt="${hotel.name}" onerror="handleImgError(this)">
         <div class="admin-hotel-info">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
             <span class="hotel-badge" style="position:static;font-size:0.75rem">${categoryMap[hotel.category] || hotel.category}</span>
