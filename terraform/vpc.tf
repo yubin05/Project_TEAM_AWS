@@ -11,6 +11,23 @@ resource "aws_internet_gateway" "main" {
   tags   = { Name = "ThreeTier-IGW" }
 }
 
+# ── NAT Gateway ────────────────────────────────────────────────────────────
+# Cognito User Pool에 도메인(Google SSO용 Hosted UI/Managed Login)이 필요해
+# PrivateLink(VPC Endpoint)로 cognito-idp를 호출할 수 없음 (AWS 제약)
+# → 프라이빗 백엔드 서브넷에 인터넷 아웃바운드 경로 필요
+resource "aws_eip" "nat" {
+  domain = "vpc"
+  tags   = { Name = "ThreeTier-NAT-EIP" }
+}
+
+resource "aws_nat_gateway" "main" {
+  allocation_id = aws_eip.nat.id
+  subnet_id     = aws_subnet.public.id
+  tags          = { Name = "ThreeTier-NAT-Gateway" }
+
+  depends_on = [aws_internet_gateway.main]
+}
+
 # ── 서브넷 ──────────────────────────────────────────────────────────────────
 # 퍼블릭: Frontend EC2(10.1.1.10)
 resource "aws_subnet" "public" {
@@ -51,6 +68,12 @@ resource "aws_route" "public_default" {
 resource "aws_route_table" "private_backend" {
   vpc_id = aws_vpc.main.id
   tags   = { Name = "ThreeTier-PrivateBackendRT" }
+}
+
+resource "aws_route" "private_backend_nat" {
+  route_table_id         = aws_route_table.private_backend.id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main.id
 }
 
 resource "aws_route_table" "private_db" {
