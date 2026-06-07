@@ -140,11 +140,11 @@ resource "aws_iam_role_policy" "ecs_task_cognito" {
 #   role       = aws_iam_role.ecs_task.name
 #   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
 # }
-#
-# resource "aws_iam_role_policy_attachment" "ecs_task_ses" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
-# }
+
+resource "aws_iam_role_policy_attachment" "ecs_task_ses" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+}
 
 # ── CodeDeploy ────────────────────────────────────────────────────────────────
 resource "aws_iam_role" "codedeploy" {
@@ -359,13 +359,13 @@ resource "aws_sqs_queue_policy" "booking_notification" {
     Version = "2012-10-17"
     Statement = [
       # Secrets Manager 구현 및 ECS Task Role 활성화 후 아래 블록 주석 해제
-      # {
-      #   Sid    = "AllowECSBookingServiceSend"
-      #   Effect = "Allow"
-      #   Principal = { AWS = aws_iam_role.ecs_task.arn }
-      #   Action   = "sqs:SendMessage"
-      #   Resource = aws_sqs_queue.booking_notification.arn
-      # },
+      {
+        Sid    = "AllowECSBookingServiceSend"
+        Effect = "Allow"
+        Principal = { AWS = aws_iam_role.ecs_task.arn }
+        Action   = "sqs:SendMessage"
+        Resource = aws_sqs_queue.booking_notification.arn
+      },
       {
         Sid    = "AllowLambdaConsume"
         Effect = "Allow"
