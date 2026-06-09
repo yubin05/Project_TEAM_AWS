@@ -1,6 +1,4 @@
 # ============================================================
-# logs_slack.tf — Slack 알람 연동 (설혜원 담당)
-# ============================================================
 # 포함 내용:
 #   1. Lambda 함수 코드 ZIP 패키징
 #   2. Lambda 함수 (slack-notifier)
@@ -24,43 +22,9 @@ data "archive_file" "slack_notifier" {
 }
 
 
-# ── 2. Lambda IAM Role ────────────────────────────────────────────────────────
-resource "aws_iam_role" "slack_notifier_lambda" {
-  name = "SlackNotifierLambdaRole"
+# IAM 역할: iam.tf 에서 관리 (aws_iam_role.slack_notifier_lambda)
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-
-  tags = { Name = "SlackNotifierLambdaRole" }
-}
-
-# CloudWatch Logs 쓰기 권한만 부여 (최소 권한)
-resource "aws_iam_role_policy" "slack_notifier_lambda_logs" {
-  name = "SlackNotifierLambdaLogsPolicy"
-  role = aws_iam_role.slack_notifier_lambda.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Action = [
-        "logs:CreateLogGroup",
-        "logs:CreateLogStream",
-        "logs:PutLogEvents"
-      ]
-      Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/slack-notifier:*"
-    }]
-  })
-}
-
-
-# ── 3. Lambda 함수 ────────────────────────────────────────────────────────────
+# ── 2. Lambda 함수 ────────────────────────────────────────────────────────────
 resource "aws_lambda_function" "slack_notifier" {
   function_name    = "slack-notifier"
   description      = "CloudWatch 알람 → SNS → Slack #배포 채널 알림 전송"
@@ -81,14 +45,9 @@ resource "aws_lambda_function" "slack_notifier" {
   tags = { Name = "slack-notifier" }
 }
 
-# Lambda 로그 그룹 (보존 기간 30일)
-resource "aws_cloudwatch_log_group" "slack_notifier" {
-  name              = "/aws/lambda/slack-notifier"
-  retention_in_days = 30
-}
+# 로그 그룹: logs_loggroups.tf 에서 관리 (aws_cloudwatch_log_group.slack_notifier)
 
-
-# ── 4. SNS → Lambda 연결 ─────────────────────────────────────────────────────
+# ── 3. SNS → Lambda 연결 ─────────────────────────────────────────────────────
 # SNS가 Lambda를 호출할 수 있도록 권한 부여
 resource "aws_lambda_permission" "allow_sns" {
   statement_id  = "AllowExecutionFromSNS"

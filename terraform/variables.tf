@@ -90,3 +90,49 @@ variable "ses_sender_email" {
   type        = string
   default     = "kimkihyo18@naver.com"
 }
+
+variable "opensearch_master_user" {
+  description = "OpenSearch Dashboards 관리자 사용자 이름"
+  type        = string
+  default     = "os-admin"
+}
+
+variable "opensearch_master_password" {
+  description = "OpenSearch Dashboards 관리자 비밀번호 (대소문자+숫자+특수문자 포함 8자 이상)"
+  type        = string
+  sensitive   = true
+}
+
+# ── AWS ↔ Azure Site-to-Site VPN ─────────────────────────────────────────────
+variable "azure_vpn_gateway_ip" {
+  description = "Azure VPN Gateway 퍼블릭 IP (1차 azure apply 후 출력값 입력). 입력 전까지 AWS VPN 리소스 생성 skip"
+  type        = string
+  default     = ""
+}
+
+variable "vpn_shared_key" {
+  description = "IPsec 사전 공유 키 (8-64자, 영숫자·점·밑줄만 허용). Azure terraform.tfvars와 동일 값 사용"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+# ── Azure DR MySQL (CDC 타깃) ─────────────────────────────────────────────────
+variable "azure_mysql_host" {
+  description = "Azure MySQL Flexible Server 프라이빗 IP (VPN 경유 CDC 타깃). Azure 포털 → MySQL 서버 → 연결 문자열에서 확인"
+  type        = string
+  default     = ""
+}
+
+variable "azure_mysql_user" {
+  description = "Azure MySQL 관리자 계정 (DMS CDC 타깃 접속용)"
+  type        = string
+  default     = "dms_replicator"
+}
+
+variable "azure_mysql_password" {
+  description = "Azure MySQL 관리자 비밀번호"
+  type        = string
+  sensitive   = true
+  default     = ""
+}

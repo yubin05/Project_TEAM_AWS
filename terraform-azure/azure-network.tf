@@ -22,6 +22,14 @@ resource "azurerm_subnet" "aca" {
   }
 }
 
+# Azure VPN Gateway 전용 서브넷 (이름 반드시 GatewaySubnet 고정)
+resource "azurerm_subnet" "gateway" {
+  name                 = "GatewaySubnet"
+  resource_group_name  = azurerm_resource_group.main.name
+  virtual_network_name = azurerm_virtual_network.main.name
+  address_prefixes     = ["10.2.4.0/27"]
+}
+
 # Azure Database for MySQL Flexible Server가 위치할 서브넷 (전용 서브넷 위임 필요)
 resource "azurerm_subnet" "database" {
   name                 = "${var.project_prefix}-db-subnet"

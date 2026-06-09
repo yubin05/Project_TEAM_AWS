@@ -11,32 +11,6 @@ resource "aws_ecs_cluster" "main" {
 }
 
 
-# ── CloudWatch Log Groups ─────────────────────────────────────────────────────
-resource "aws_cloudwatch_log_group" "auth" {
-  name              = "/ecs/auth-service"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "hotel" {
-  name              = "/ecs/hotel-service"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "booking" {
-  name              = "/ecs/booking-service"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "review" {
-  name              = "/ecs/review-service"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "support" {
-  name              = "/ecs/support-service"
-  retention_in_days = 30
-}
-
 # ── Secrets Manager (보안 담당자가 미리 생성한 시크릿 조회) ─────────────────────
 # secrets[].valueFrom에 JSON 키(:KEY::)를 지정하려면 친근한 이름이 아닌 전체 ARN이 필요함
 data "aws_secretsmanager_secret" "auth" {

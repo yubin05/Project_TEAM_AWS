@@ -23,6 +23,32 @@ resource "azurerm_subnet_network_security_group_association" "database" {
   network_security_group_id = azurerm_network_security_group.database.id
 }
 
-# TODO (보안 파트 협의 후 추가):
-# - DB NSG: ACA 서브넷 → MySQL 포트(3306)만 허용, 그 외 인바운드 차단
-# - DMS 복제 인스턴스 ↔ Azure DB 간 경로 (퍼블릭+TLS vs Private Endpoint/VPN)에 따른 규칙
+# ACA 서브넷 → MySQL 3306 허용 (앱 → DB 트래픽)
+resource "azurerm_network_security_rule" "allow_aca_mysql" {
+  name                        = "allow-aca-mysql"
+  priority                    = 110
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3306"
+  source_address_prefix       = "10.2.0.0/23"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.main.name
+  network_security_group_name = azurerm_network_security_group.database.name
+}
+
+# AWS VPC → MySQL 3306 허용 (DMS CDC 복제 — VPN Site-to-Site 경유)
+resource "azurerm_network_security_rule" "allow_aws_dms_mysql" {
+  name                        = "allow-aws-dms-mysql"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3306"
+  source_address_prefix       = "10.1.0.0/16"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.main.name
+  network_security_group_name = azurerm_network_security_group.database.name
+}

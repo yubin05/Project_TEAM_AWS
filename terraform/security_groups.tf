@@ -273,3 +273,42 @@ resource "aws_security_group" "rds" {
     ignore_changes = [ingress]
   }
 }
+
+# DMS SG: 항상 생성 — Phase 1(IDC Full Load) + Phase 2(Aurora→Azure CDC) 모두 사용
+resource "aws_security_group" "dms" {
+  name        = "ThreeTier-DMS-SG"
+  description = "DMS Replication Instance Security Group"
+  vpc_id      = aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = { Name = "ThreeTier-DMS-SG" }
+}
+
+# DMS → Aurora MySQL (CDC에도 필요하므로 항상 허용)
+resource "aws_security_group_rule" "rds_from_dms" {
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.dms.id
+  security_group_id        = aws_security_group.rds.id
+  description              = "DMS replication instance to Aurora MySQL"
+}
+
+# DMS → IDC MySQL EC2 (VPN 경유, enable_migration 기간만 필요)
+resource "aws_security_group_rule" "mysql_from_dms" {
+  count                    = var.enable_migration ? 1 : 0
+  type                     = "ingress"
+  from_port                = 3306
+  to_port                  = 3306
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.dms.id
+  security_group_id        = aws_security_group.mysql[0].id
+  description              = "DMS replication instance to IDC MySQL EC2 via Site-to-Site VPN"
+}

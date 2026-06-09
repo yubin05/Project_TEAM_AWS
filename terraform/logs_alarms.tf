@@ -9,7 +9,7 @@ resource "aws_sns_topic" "alerts" {
   tags = { Name = "TravelApp-Alerts" }
 }
 
-# 이메일 구독 — 설혜원 (확인 이메일 수신 후 클릭해야 활성화됨)
+# 이메일 구독 — 본인 (확인 이메일 수신 후 클릭해야 활성화됨)
 resource "aws_sns_topic_subscription" "email_alert" {
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
@@ -20,7 +20,7 @@ resource "aws_sns_topic_subscription" "email_alert" {
 # ── 2. ECS CPU 알람 (5개 서비스) ────────────────────────────
 # 비유: 컨테이너 CPU가 70% 넘으면 소방 감지기처럼 SNS에 알림
 locals {
-  ecs_services = {
+  ecs_service_names = {
     auth    = "auth-service"
     hotel   = "hotel-service"
     booking = "booking-service"
@@ -30,7 +30,7 @@ locals {
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
-  for_each = local.ecs_services
+  for_each = local.ecs_service_names
 
   alarm_name          = "ECS-CPU-High-${each.value}"
   alarm_description   = "${each.value} CPU 사용률 70% 초과"
@@ -222,4 +222,129 @@ resource "aws_cloudwatch_metric_alarm" "sqs_rating_age" {
   ok_actions    = [aws_sns_topic.alerts.arn]
 
   tags = { Name = "SQS-RatingQueue-OldestMessageAge" }
+}
+
+
+# ── 8. Metric Filter 기반 알람 ──────────────────────────────────────────────
+# CloudWatch Logs → Metric Filter → CloudWatch Alarm → SNS → Slack
+
+# ECS 5개 서비스 로그에서 ERROR/CRITICAL 키워드 카운트
+resource "aws_cloudwatch_log_metric_filter" "ecs_error" {
+  for_each       = local.ecs_service_names
+  name           = "ecs-${each.key}-error-filter"
+  log_group_name = "/ecs/${each.value}"
+  pattern        = "?ERROR ?CRITICAL"
+
+  metric_transformation {
+    name          = "ECSErrorCount-${each.value}"
+    namespace     = "ThreeTier/ApplicationLogs"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "ecs_error_rate" {
+  for_each = local.ecs_service_names
+
+  alarm_name          = "ECS-ErrorRate-${each.value}"
+  alarm_description   = "${each.value} ERROR/CRITICAL 로그 5분간 10건 초과"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "ECSErrorCount-${each.value}"
+  namespace           = "ThreeTier/ApplicationLogs"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 10
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
+  tags = { Name = "ECS-ErrorRate-${each.value}" }
+}
+
+# RDS Slow Query Metric Filter
+resource "aws_cloudwatch_log_metric_filter" "rds_slow_query" {
+  name           = "rds-slow-query-filter"
+  log_group_name = aws_cloudwatch_log_group.rds_slowquery.name
+  pattern        = "User@Host"
+
+  metric_transformation {
+    name          = "RDSSlowQueryCount"
+    namespace     = "ThreeTier/RDSLogs"
+    value         = "1"
+    default_value = "0"
+  }
+}
+
+resource "aws_cloudwatch_metric_alarm" "rds_slow_query" {
+  alarm_name          = "RDS-SlowQuery-High"
+  alarm_description   = "RDS Slow Query 5분간 5건 초과"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "RDSSlowQueryCount"
+  namespace           = "ThreeTier/RDSLogs"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 5
+  treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
+  tags = { Name = "RDS-SlowQuery-High" }
+}
+
+
+# ── 9. DMS 알람 ─────────────────────────────────────────────────────────────
+# enable_migration = true 일 때만 생성 (DMS 리소스 생애주기와 동일)
+
+# Full Load 처리량 급감 — IDC → Aurora 마이그레이션 지연 감지
+resource "aws_cloudwatch_metric_alarm" "dms_full_load_throughput_low" {
+  count = var.enable_migration ? 1 : 0
+
+  alarm_name          = "DMS-FullLoad-Throughput-Low"
+  alarm_description   = "DMS Full Load 복제 처리량 급감 — IDC→Aurora 마이그레이션 지연 가능성"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "FullLoadThroughputRowsTarget"
+  namespace           = "AWS/DMS"
+  period              = 60
+  statistic           = "Average"
+  threshold           = 100  # 100 rows/sec 미만이면 알람
+
+  dimensions = {
+    ReplicationTaskIdentifier = aws_dms_replication_task.full_load[0].replication_task_id
+  }
+
+  alarm_actions      = [aws_sns_topic.alerts.arn]
+  ok_actions         = [aws_sns_topic.alerts.arn]
+  treat_missing_data = "notBreaching"
+
+  tags = { Name = "DMS-FullLoad-Throughput-Low" }
+}
+
+# CDC 복제 지연 — Aurora → Azure 실시간 동기화 지연 감지
+resource "aws_cloudwatch_metric_alarm" "dms_cdc_latency_high" {
+  count = local.cdc_enabled ? 1 : 0
+
+  alarm_name          = "DMS-CDC-SourceLatency-High"
+  alarm_description   = "DMS CDC 소스 지연 60초 초과 — Aurora→Azure 실시간 복제 지연"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CDCLatencySource"
+  namespace           = "AWS/DMS"
+  period              = 60
+  statistic           = "Maximum"
+  threshold           = 60
+
+  dimensions = {
+    ReplicationTaskIdentifier = aws_dms_replication_task.aurora_to_azure[0].replication_task_id
+  }
+
+  alarm_actions      = [aws_sns_topic.alerts.arn]
+  ok_actions         = [aws_sns_topic.alerts.arn]
+  treat_missing_data = "notBreaching"
+
+  tags = { Name = "DMS-CDC-SourceLatency-High" }
 }

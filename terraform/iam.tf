@@ -216,6 +216,194 @@ resource "aws_iam_role_policy" "codepipeline" {
   })
 }
 
+# ── Logging — Lambda CW Transform ────────────────────────────────────────────
+resource "aws_iam_role" "lambda_cw_transform" {
+  name = "ThreeTier-Lambda-CWTransform-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Lambda-CWTransform-Role", Project = "threetier" }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_cw_transform_basic" {
+  role       = aws_iam_role.lambda_cw_transform.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# ── Logging — Kinesis Firehose ────────────────────────────────────────────────
+resource "aws_iam_role" "firehose" {
+  name = "ThreeTier-Firehose-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "firehose.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Firehose-Role", Project = "threetier" }
+}
+
+resource "aws_iam_role_policy" "firehose" {
+  name = "ThreeTier-Firehose-Policy"
+  role = aws_iam_role.firehose.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = ["s3:PutObject", "s3:GetObject", "s3:ListBucket", "s3:AbortMultipartUpload", "s3:GetBucketLocation"]
+        Resource = [aws_s3_bucket.logs.arn, "${aws_s3_bucket.logs.arn}/*"]
+      },
+      {
+        Effect = "Allow"
+        Action = ["es:DescribeDomain", "es:DescribeElasticsearchDomain", "es:DescribeElasticsearchDomains", "es:DescribeElasticsearchDomainConfig", "es:ESHttpPost", "es:ESHttpPut", "es:ESHttpGet"]
+        Resource = [aws_opensearch_domain.logs.arn, "${aws_opensearch_domain.logs.arn}/*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.cw_transform.arn
+      },
+      {
+        Effect = "Allow"
+        Action = ["logs:PutLogEvents", "logs:CreateLogGroup", "logs:CreateLogStream"]
+        Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+      }
+    ]
+  })
+}
+
+# ── Logging — CloudWatch Logs → Firehose ──────────────────────────────────────
+resource "aws_iam_role" "cloudwatch_to_firehose" {
+  name = "ThreeTier-CWLogs-To-Firehose-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "logs.${var.aws_region}.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-CWLogs-To-Firehose-Role", Project = "threetier" }
+}
+
+resource "aws_iam_role_policy" "cloudwatch_to_firehose" {
+  name = "ThreeTier-CWLogs-To-Firehose-Policy"
+  role = aws_iam_role.cloudwatch_to_firehose.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "firehose:PutRecord"
+      Resource = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
+    }]
+  })
+}
+
+# ── Logging — VPC Flow Logs → CloudWatch ──────────────────────────────────────
+resource "aws_iam_role" "vpc_flow_logs_cw" {
+  name = "ThreeTier-VPCFlowLogs-CW-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "vpc-flow-logs.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-VPCFlowLogs-CW-Role", Project = "threetier" }
+}
+
+resource "aws_iam_role_policy" "vpc_flow_logs_cw" {
+  name = "ThreeTier-VPCFlowLogs-CW-Policy"
+  role = aws_iam_role.vpc_flow_logs_cw.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
+      Resource = "${aws_cloudwatch_log_group.vpc_flow_logs.arn}:*"
+    }]
+  })
+}
+
+# ── Logging — CloudTrail → CloudWatch ────────────────────────────────────────
+resource "aws_iam_role" "cloudtrail_cw" {
+  name = "ThreeTier-CloudTrail-CW-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "cloudtrail.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-CloudTrail-CW-Role", Project = "threetier" }
+}
+
+resource "aws_iam_role_policy" "cloudtrail_cw" {
+  name = "ThreeTier-CloudTrail-CW-Policy"
+  role = aws_iam_role.cloudtrail_cw.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents", "logs:DescribeLogGroups", "logs:DescribeLogStreams"]
+      Resource = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+    }]
+  })
+}
+
+# ── Logging — Slack Notifier Lambda ──────────────────────────────────────────
+resource "aws_iam_role" "slack_notifier_lambda" {
+  name = "SlackNotifierLambdaRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "SlackNotifierLambdaRole" }
+}
+
+resource "aws_iam_role_policy" "slack_notifier_lambda_logs" {
+  name = "SlackNotifierLambdaLogsPolicy"
+  role = aws_iam_role.slack_notifier_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+      Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/slack-notifier:*"
+    }]
+  })
+}
+
 # ── CodeBuild ─────────────────────────────────────────────────────────────────
 resource "aws_iam_role" "codebuild" {
   name = "ThreeTier-CodeBuild-Role"

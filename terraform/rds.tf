@@ -1,4 +1,25 @@
 
+# DMS CDC 소스 요구사항: binlog_format=ROW, binlog_checksum=NONE
+resource "aws_rds_cluster_parameter_group" "cdc" {
+  name        = "threetier-aurora-cdc"
+  family      = "aurora-mysql8.0"
+  description = "Aurora MySQL parameter group for DMS CDC replication"
+
+  parameter {
+    name         = "binlog_format"
+    value        = "ROW"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "binlog_checksum"
+    value        = "NONE"
+    apply_method = "pending-reboot"
+  }
+
+  tags = { Name = "ThreeTier-Aurora-CDC-ParamGroup" }
+}
+
 resource "aws_db_subnet_group" "main" {
   name       = "threetier-db-subnet-group"
   subnet_ids = [aws_subnet.private_db.id, aws_subnet.private_db_2.id]
@@ -7,20 +28,23 @@ resource "aws_db_subnet_group" "main" {
 
 # ── Aurora MySQL 클러스터 ─────────────────────────────────────────────────────
 resource "aws_rds_cluster" "main" {
-  cluster_identifier     = "threetier-aurora-cluster"
-  engine                 = "aurora-mysql"
-  engine_version         = "8.0.mysql_aurora.3.04.0"
-  database_name          = "main_db"
-  master_username        = "admin"
-  master_password        = var.db_password
-  db_subnet_group_name   = aws_db_subnet_group.main.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
-  skip_final_snapshot    = true
+  cluster_identifier              = "threetier-aurora-cluster"
+  engine                          = "aurora-mysql"
+  engine_version                  = "8.0.mysql_aurora.3.04.0"
+  database_name                   = "main_db"
+  master_username                 = "admin"
+  master_password                 = var.db_password
+  db_subnet_group_name            = aws_db_subnet_group.main.name
+  vpc_security_group_ids          = [aws_security_group.rds.id]
+  db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.cdc.name
+  skip_final_snapshot             = true
 
   serverlessv2_scaling_configuration {
     min_capacity = 0.5
     max_capacity = 4.0
   }
+
+  enabled_cloudwatch_logs_exports = ["error", "general", "slowquery"]
 
   tags = { Name = "ThreeTier-Aurora-Cluster" }
 }
