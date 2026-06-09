@@ -296,7 +296,7 @@ resource "aws_ecs_service" "auth" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -327,7 +327,7 @@ resource "aws_ecs_service" "hotel" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -358,7 +358,7 @@ resource "aws_ecs_service" "booking" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -389,7 +389,7 @@ resource "aws_ecs_service" "review" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -420,6 +420,6 @@ resource "aws_ecs_service" "support" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }

@@ -81,33 +81,44 @@ resource "aws_security_group" "backend" {
   }
 }
 
-# MySQL SG: 백엔드 서브넷(10.1.2.0/24)에서만 3306 허용
-resource "aws_security_group" "mysql" {
-  name        = "ThreeTier-MySQL-SG"
-  description = "MySQL EC2 Security Group"
-  vpc_id      = aws_vpc.main.id
-  tags        = { Name = "ThreeTier-MySQL-SG" }
+# CGW SG: StrongSwan EC2 — VPN 터널 수립 및 트래픽 포워딩
+resource "aws_security_group" "cgw" {
+  count       = var.enable_migration ? 1 : 0
+  name        = "ThreeTier-CGW-SG"
+  description = "StrongSwan CGW EC2 Security Group (IDC VPC)"
+  vpc_id      = aws_vpc.idc[0].id
+  tags        = { Name = "ThreeTier-CGW-SG" }
 
   ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
+    description = "IKE - IPSec tunnel negotiation"
+    from_port   = 500
+    to_port     = 500
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
-    description = "Backend services to MySQL port 3306"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.2.0/24"]
+    description = "IKE NAT-T"
+    from_port   = 4500
+    to_port     = 4500
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
+    description = "ESP - IPSec encrypted packets"
     from_port   = -1
     to_port     = -1
-    protocol    = "icmp"
-    cidr_blocks = ["10.1.0.0/16"]
+    protocol    = "50"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "IDC VPC internal forwarding traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["10.0.0.0/16"]
   }
 
   egress {
@@ -116,9 +127,37 @@ resource "aws_security_group" "mysql" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+}
 
-  lifecycle {
-    ignore_changes = [ingress]
+# MySQL SG: IDC VPC에 위치 (온프레미스 시뮬레이션)
+# DMS(Main VPC 10.1.2.x/10.1.5.x)에서 VPN 경유로 3306 접근
+resource "aws_security_group" "mysql" {
+  count       = var.enable_migration ? 1 : 0
+  name        = "ThreeTier-MySQL-SG"
+  description = "MySQL EC2 Security Group (IDC VPC)"
+  vpc_id      = aws_vpc.idc[0].id
+  tags        = { Name = "ThreeTier-MySQL-SG" }
+
+  ingress {
+    description = "DMS replication instance via Site-to-Site VPN"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.2.0/24", "10.1.5.0/24"]
+  }
+
+  ingress {
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = ["10.0.0.0/16", "10.1.0.0/16"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 }
 
@@ -216,11 +255,11 @@ resource "aws_security_group" "rds" {
   tags        = { Name = "ThreeTier-RDS-SG" }
 
   ingress {
-    description = "MySQL from backend and on-premises DB subnet"
+    description = "MySQL from backend subnets and DMS"
     from_port   = 3306
     to_port     = 3306
     protocol    = "tcp"
-    cidr_blocks = concat(["10.1.2.0/24", "10.1.5.0/24"], var.enable_migration ? ["10.1.3.0/24"] : [])
+    cidr_blocks = ["10.1.2.0/24", "10.1.5.0/24"]
   }
 
   egress {

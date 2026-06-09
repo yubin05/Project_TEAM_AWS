@@ -23,16 +23,6 @@ resource "aws_security_group" "dms" {
 }
 
 
-resource "aws_security_group_rule" "mysql_from_dms" {
-  count                    = var.enable_migration ? 1 : 0
-  type                     = "ingress"
-  from_port                = 3306
-  to_port                  = 3306
-  protocol                 = "tcp"
-  source_security_group_id = aws_security_group.dms[0].id
-  security_group_id        = aws_security_group.mysql.id
-  description              = "DMS replication instance to MySQL EC2"
-}
 
 resource "aws_security_group_rule" "rds_from_dms" {
   count                    = var.enable_migration ? 1 : 0
@@ -140,7 +130,7 @@ resource "aws_dms_replication_task" "full_load" {
   source_endpoint_arn      = aws_dms_endpoint.source[0].endpoint_arn
   target_endpoint_arn      = aws_dms_endpoint.target[0].endpoint_arn
   migration_type           = "full-load"
-  start_replication_task   = true
+  start_replication_task   = false
 
   table_mappings = jsonencode({
     rules = [
