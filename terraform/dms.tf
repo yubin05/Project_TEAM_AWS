@@ -169,7 +169,7 @@ resource "aws_dms_replication_task" "aurora_to_azure" {
   replication_instance_arn = aws_dms_replication_instance.main.replication_instance_arn
   source_endpoint_arn      = aws_dms_endpoint.aurora_source[0].endpoint_arn
   target_endpoint_arn      = aws_dms_endpoint.azure_target[0].endpoint_arn
-  migration_type           = "cdc"
+  migration_type           = "full-load-and-cdc"
   start_replication_task   = false
 
   table_mappings = jsonencode({
@@ -184,7 +184,7 @@ resource "aws_dms_replication_task" "aurora_to_azure" {
 
   replication_task_settings = jsonencode({
     TargetMetadata = { TargetSchema = "", SupportLobs = true, FullLobMode = false, LobChunkSize = 64, LimitedSizeLobMode = true, LobMaxSize = 32 }
-    FullLoadSettings = { TargetTablePrepMode = "DO_NOTHING" }
+    FullLoadSettings = { TargetTablePrepMode = "DROP_AND_CREATE" }
     Logging = { EnableLogging = true, LogComponents = [
       { Id = "SOURCE_CAPTURE", Severity = "LOGGER_SEVERITY_DEFAULT" },
       { Id = "TARGET_APPLY",   Severity = "LOGGER_SEVERITY_DEFAULT" },

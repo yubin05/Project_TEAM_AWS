@@ -266,8 +266,8 @@ resource "aws_cloudwatch_metric_alarm" "ecs_error_rate" {
 # RDS Slow Query Metric Filter
 resource "aws_cloudwatch_log_metric_filter" "rds_slow_query" {
   name           = "rds-slow-query-filter"
-  log_group_name = aws_cloudwatch_log_group.rds_slowquery.name
-  pattern        = "User@Host"
+  log_group_name = "/aws/rds/cluster/threetier-aurora-cluster/slowquery"
+  pattern        = "Query_time"
 
   metric_transformation {
     name          = "RDSSlowQueryCount"
@@ -275,6 +275,8 @@ resource "aws_cloudwatch_log_metric_filter" "rds_slow_query" {
     value         = "1"
     default_value = "0"
   }
+
+  depends_on = [aws_cloudwatch_log_group.rds_slowquery]
 }
 
 resource "aws_cloudwatch_metric_alarm" "rds_slow_query" {

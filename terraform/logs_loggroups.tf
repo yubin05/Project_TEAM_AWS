@@ -79,17 +79,6 @@ resource "aws_cloudwatch_log_group" "lambda_cw_transform" {
   tags = { Name = "lambda-cw-transform-log-group", Project = "threetier" }
 }
 
-# ── API Gateway ──────────────────────────────────────────────
-resource "aws_cloudwatch_log_group" "apigateway" {
-  name              = "/aws/apigateway/threetier-http-api"
-  retention_in_days = 30
-
-  tags = {
-    Name    = "apigateway-log-group"
-    Project = "threetier"
-  }
-}
-
 # ── WAF ─────────────────────────────────────────────────────
 resource "aws_cloudwatch_log_group" "waf" {
   name              = "aws-waf-logs-threetier"
@@ -124,18 +113,21 @@ resource "aws_cloudwatch_log_group" "dms_task" {
 
 # ── RDS Aurora 로그 ──────────────────────────────────────────
 resource "aws_cloudwatch_log_group" "rds_error" {
+  count             = var.enable_rds_log_groups ? 1 : 0
   name              = "/aws/rds/cluster/threetier-aurora-cluster/error"
   retention_in_days = 30
   tags              = { Name = "rds-error-log-group", Project = "threetier" }
 }
 
 resource "aws_cloudwatch_log_group" "rds_general" {
+  count             = var.enable_rds_log_groups ? 1 : 0
   name              = "/aws/rds/cluster/threetier-aurora-cluster/general"
   retention_in_days = 14
   tags              = { Name = "rds-general-log-group", Project = "threetier" }
 }
 
 resource "aws_cloudwatch_log_group" "rds_slowquery" {
+  count             = var.enable_rds_log_groups ? 1 : 0
   name              = "/aws/rds/cluster/threetier-aurora-cluster/slowquery"
   retention_in_days = 30
   tags              = { Name = "rds-slowquery-log-group", Project = "threetier" }
