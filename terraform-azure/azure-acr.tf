@@ -17,3 +17,9 @@ resource "azurerm_role_assignment" "aca_acr_pull" {
   role_definition_name = "AcrPull"
   principal_id         = each.value.identity[0].principal_id
 }
+
+resource "azurerm_role_assignment" "sp_acr_push" {
+  scope                = azurerm_container_registry.main.id
+  role_definition_name = "AcrPush"
+  principal_id         = var.github_actions_sp_principal_id
+}

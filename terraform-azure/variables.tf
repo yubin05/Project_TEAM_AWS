@@ -67,3 +67,9 @@ variable "db_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "github_actions_sp_principal_id" {
+  description = "GitHub Actions Service Principal의 Object ID (AcrPush 권한 부여용)"
+  type        = string
+  default     = "2563d59b-13d3-481d-aa59-68c4d9022a5a"
+}
