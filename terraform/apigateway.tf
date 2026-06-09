@@ -325,9 +325,22 @@ resource "aws_apigatewayv2_route" "inquiries_admin_answer" {
 }
 
 # ── Stage ─────────────────────────────────────────────────────────────────────
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/apigateway/threetier-http-api"
+  retention_in_days = 30
+  tags              = { Name = "ThreeTier-APIGW-LogGroup" }
+}
+
 resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.main.id
   name        = "$default"
   auto_deploy = true
   tags        = { Name = "ThreeTier-API-Stage" }
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway.arn
+    format          = "$context.requestId $context.httpMethod $context.routeKey $context.status $context.responseLength $context.requestTime"
+  }
+
+  depends_on = [aws_cloudwatch_log_group.api_gateway]
 }

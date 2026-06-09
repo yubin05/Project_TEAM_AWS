@@ -294,7 +294,7 @@ resource "aws_ecs_service" "auth" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -325,7 +325,7 @@ resource "aws_ecs_service" "hotel" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -356,7 +356,7 @@ resource "aws_ecs_service" "booking" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -387,7 +387,7 @@ resource "aws_ecs_service" "review" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
 
@@ -395,7 +395,7 @@ resource "aws_ecs_service" "support" {
   name            = "support-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.support.arn
-  desired_count   = 1
+  desired_count   = 2
   launch_type     = "FARGATE"
 
   deployment_controller {
@@ -418,6 +418,6 @@ resource "aws_ecs_service" "support" {
   depends_on            = [aws_lb_listener.http]
 
   lifecycle {
-    ignore_changes = [task_definition, load_balancer]
+    ignore_changes = [task_definition, load_balancer, desired_count]
   }
 }
