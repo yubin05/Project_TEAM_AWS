@@ -53,10 +53,19 @@ export async function register(req: Request, res: Response): Promise<void> {
       [cognitoSub, email, uuidv4(), name, phone || null, userRole]
     );
 
+    const authResult = await cognito.send(new InitiateAuthCommand({
+      AuthFlow: 'USER_PASSWORD_AUTH',
+      ClientId: config.cognito.clientId,
+      AuthParameters: { USERNAME: email, PASSWORD: password },
+    }));
+
     res.status(201).json({
       success: true,
       message: '회원가입이 완료되었습니다.',
-      data: { user: { id: cognitoSub, email, name, role: userRole } },
+      data: {
+        token: authResult.AuthenticationResult?.AccessToken,
+        user: { id: cognitoSub, email, name, role: userRole },
+      },
     });
   } catch (error: any) {
     if (error.name === 'UsernameExistsException') {
