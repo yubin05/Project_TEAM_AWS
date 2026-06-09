@@ -157,7 +157,7 @@ resource "aws_dms_endpoint" "azure_target" {
   port          = 3306
   username      = var.azure_mysql_user
   password      = var.azure_mysql_password
-  ssl_mode      = "require"
+  ssl_mode      = "none"
 
   tags = { Name = "ThreeTier-CDC-Target-Azure" }
 }
