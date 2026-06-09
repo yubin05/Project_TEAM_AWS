@@ -35,16 +35,24 @@ resource "azurerm_container_app" "services" {
   }
 
   template {
+    min_replicas = var.aca_min_replicas
+    max_replicas = var.aca_max_replicas
+
     container {
       name   = each.key
       image  = "${azurerm_container_registry.main.login_server}/${each.key}:latest"
       cpu    = 0.25
       memory = "0.5Gi"
     }
+
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = var.aca_http_concurrent_requests
+    }
   }
 
-  # GitHub Actions가 이미지를 업데이트하면 Terraform이 되돌리지 않도록
-  lifecycle {
-    ignore_changes = [template]
-  }
+  # [apply 완료 후 이 블록을 아래로 복원]
+  # lifecycle {
+  #   ignore_changes = [template]
+  # }
 }
