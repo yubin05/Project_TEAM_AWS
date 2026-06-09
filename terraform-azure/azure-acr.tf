@@ -10,3 +10,10 @@ resource "azurerm_container_registry" "main" {
 
 # ACR 권한(Push/Pull) RBAC 할당은 CI/CD 파트의 Service Principal/Managed Identity가
 # 정해진 뒤 azurerm_role_assignment로 추가 예정
+resource "azurerm_role_assignment" "aca_acr_pull" {
+  for_each = azurerm_container_app.services
+
+  scope                = azurerm_container_registry.main.id
+  role_definition_name = "AcrPull"
+  principal_id         = each.value.identity[0].principal_id
+}

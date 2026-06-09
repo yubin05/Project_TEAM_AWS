@@ -1,0 +1,53 @@
+name: Deploy Backend to Azure Container Apps
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+
+env:
+  ACR_NAME: threetierdracr
+  ACR_LOGIN_SERVER: threetierdracr.azurecr.io
+  RESOURCE_GROUP: threetier-dr-rg
+  ACA_ENVIRONMENT: threetier-dr-aca-env
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - auth-service
+          - hotel-service
+          - booking-service
+          - review-service
+          - support-service
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure 로그인
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: ACR 로그인
+        run: az acr login --name ${{ env.ACR_NAME }}
+
+      - name: Docker 이미지 빌드 및 푸시
+        run: |
+          docker build \
+            -t ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }} \
+            ./backend/${{ matrix.service }}
+          docker push ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }}
+
+      - name: ACA 배포
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          acrName: ${{ env.ACR_NAME }}
+          containerAppName: ${{ matrix.service }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          containerAppEnvironment: ${{ env.ACA_ENVIRONMENT }}
+          imageToDeploy: ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }}
