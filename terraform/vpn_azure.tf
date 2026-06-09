@@ -26,7 +26,7 @@ resource "aws_customer_gateway" "azure" {
 # IKEv2 + AES256/SHA2-256/DHGroup14: Azure VpnGw1AZ 기본 정책과 매칭
 resource "aws_vpn_connection" "azure" {
   count               = local.azure_vpn_enabled ? 1 : 0
-  vpn_gateway_id      = aws_vpn_gateway.main[0].id
+  vpn_gateway_id      = aws_vpn_gateway.main.id
   customer_gateway_id = aws_customer_gateway.azure[0].id
   type                = "ipsec.1"
   static_routes_only  = true

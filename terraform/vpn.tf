@@ -14,23 +14,21 @@ resource "aws_eip" "cgw" {
 }
 
 # VPN Gateway — Main VPC 측 AWS 엔드포인트
+# count 없음: IDC Full Load 완료 후에도 Azure CDC VPN에 계속 필요
 resource "aws_vpn_gateway" "main" {
-  count  = var.enable_migration ? 1 : 0
   vpc_id = aws_vpc.main.id
   tags   = { Name = "ThreeTier-VGW" }
 }
 
-# VPN 라우트 자동 전파 — IDC VPC CIDR(10.0.0.0/16)이 Main VPC RT에 자동 추가됨
+# VPN 라우트 자동 전파 — IDC(10.0.0.0/16) + Azure(10.2.0.0/16) 경로가 Main VPC RT에 자동 추가됨
 resource "aws_vpn_gateway_route_propagation" "private_backend" {
-  count          = var.enable_migration ? 1 : 0
-  vpn_gateway_id = aws_vpn_gateway.main[0].id
+  vpn_gateway_id = aws_vpn_gateway.main.id
   route_table_id = aws_route_table.private_backend.id
   depends_on     = [aws_vpn_gateway.main]
 }
 
 resource "aws_vpn_gateway_route_propagation" "private_db" {
-  count          = var.enable_migration ? 1 : 0
-  vpn_gateway_id = aws_vpn_gateway.main[0].id
+  vpn_gateway_id = aws_vpn_gateway.main.id
   route_table_id = aws_route_table.private_db.id
   depends_on     = [aws_vpn_gateway.main]
 }
@@ -48,7 +46,7 @@ resource "aws_customer_gateway" "idc" {
 # VPN Connection (Static Routes Only — BGP 없이 정적 경로 사용)
 resource "aws_vpn_connection" "main" {
   count               = var.enable_migration ? 1 : 0
-  vpn_gateway_id      = aws_vpn_gateway.main[0].id
+  vpn_gateway_id      = aws_vpn_gateway.main.id
   customer_gateway_id = aws_customer_gateway.idc[0].id
   type                = "ipsec.1"
   static_routes_only  = true
