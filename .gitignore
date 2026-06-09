@@ -148,7 +148,6 @@ backend/dist/
 .claude/
 
 # Lambda build artifacts
-lambda/*.zip
 
 # Terraform
 terraform/.terraform/
@@ -175,4 +174,3 @@ terraform-azure/*.tfvars
 .local/
 
 # lambda
-lambda/*.zip
