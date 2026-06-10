@@ -81,3 +81,27 @@ variable "vpn_shared_key" {
   sensitive   = true
   default     = ""
 }
+
+variable "github_actions_sp_principal_id" {
+  description = "GitHub Actions Service Principal의 Object ID (AcrPush 권한 부여용)"
+  type        = string
+  default     = "2563d59b-13d3-481d-aa59-68c4d9022a5a"
+}
+
+variable "aca_min_replicas" {
+  description = "ACA 최소 레플리카 수 (DR 시나리오 콜드스타트 방지를 위해 0으로 두지 않음)"
+  type        = number
+  default     = 1
+}
+
+variable "aca_max_replicas" {
+  description = "ACA 최대 레플리카 수"
+  type        = number
+  default     = 5
+}
+
+variable "aca_http_concurrent_requests" {
+  description = "HTTP 스케일 아웃 기준 동시 요청 수"
+  type        = number
+  default     = 100
+}

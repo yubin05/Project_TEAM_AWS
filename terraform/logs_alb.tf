@@ -58,7 +58,7 @@ resource "aws_iam_role_policy" "lambda_alb_log_processor" {
 
 data "archive_file" "alb_log_processor" {
   type        = "zip"
-  output_path = "${path.module}/lambda_alb_processor.zip"
+  output_path = "${path.module}/../lambda/lambda_alb_processor.zip"
 
   source {
     filename = "index.py"

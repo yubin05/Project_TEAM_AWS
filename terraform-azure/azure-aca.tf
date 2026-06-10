@@ -13,3 +13,46 @@ resource "azurerm_container_app_environment" "main" {
 
 # 마이크로서비스 5개(auth/hotel/booking/review/support) 정의(azurerm_container_app)는
 # CI/CD 파트의 ACR 이미지 태그/네이밍 규칙이 확정된 뒤 추가 예정
+locals {
+  services = ["auth-service", "hotel-service", "booking-service", "review-service", "support-service"]
+}
+
+resource "azurerm_container_app" "services" {
+  for_each = toset(local.services)
+
+  name                         = each.key
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = "system"
+  }
+
+  template {
+    min_replicas = var.aca_min_replicas
+    max_replicas = var.aca_max_replicas
+
+    container {
+      name   = each.key
+      image  = "${azurerm_container_registry.main.login_server}/${each.key}:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = var.aca_http_concurrent_requests
+    }
+  }
+
+  # [apply 완료 후 이 블록을 아래로 복원]
+  # lifecycle {
+  #   ignore_changes = [template]
+  # }
+}

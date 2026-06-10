@@ -6,6 +6,7 @@
 # ============================================================
 
 resource "aws_cloudtrail" "main" {
+  count = var.enable_cloudtrail ? 1 : 0
   name                          = "travel-cloudtrail"
   s3_bucket_name                = aws_s3_bucket.logs.id
   s3_key_prefix                 = "cloudtrail"

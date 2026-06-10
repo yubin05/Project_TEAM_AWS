@@ -66,6 +66,18 @@ variable "deploy_branch" {
   default     = "main"
 }
 
+variable "enable_cloudtrail" {
+  description = "CloudTrail 리소스 terraform 관리 여부. 콘솔에서 수동 생성한 경우 false"
+  type        = bool
+  default     = false
+}
+
+variable "enable_rds_log_groups" {
+  description = "RDS Aurora 로그 그룹 terraform 관리 여부"
+  type        = bool
+  default     = true
+}
+
 variable "enable_migration" {
   description = "MySQL EC2 + DMS 리소스 활성화. 최초 배포 시 true, 마이그레이션 완료 후 false로 바꾸고 apply하면 자동 삭제"
   type        = bool
@@ -119,32 +131,28 @@ variable "enable_opensearch_tunnel" {
 variable "azure_vpn_gateway_ip" {
   description = "Azure VPN Gateway 퍼블릭 IP (1차 azure apply 후 출력값 입력). 입력 전까지 AWS VPN 리소스 생성 skip"
   type        = string
-  default     = ""
 }
 
 variable "vpn_shared_key" {
   description = "IPsec 사전 공유 키 (8-64자, 영숫자·점·밑줄만 허용). Azure terraform.tfvars와 동일 값 사용"
   type        = string
   sensitive   = true
-  default     = ""
 }
 
 # ── Azure DR MySQL (CDC 타깃) ─────────────────────────────────────────────────
 variable "azure_mysql_host" {
   description = "Azure MySQL Flexible Server 프라이빗 IP (VPN 경유 CDC 타깃). Azure 포털 → MySQL 서버 → 연결 문자열에서 확인"
   type        = string
-  default     = ""
 }
 
 variable "azure_mysql_user" {
   description = "Azure MySQL 관리자 계정 (DMS CDC 타깃 접속용)"
   type        = string
-  default     = "dms_replicator"
+  default     = "dbadmin"
 }
 
 variable "azure_mysql_password" {
   description = "Azure MySQL 관리자 비밀번호"
   type        = string
   sensitive   = true
-  default     = ""
 }

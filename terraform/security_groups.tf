@@ -308,9 +308,9 @@ resource "aws_security_group_rule" "mysql_from_dms" {
   from_port                = 3306
   to_port                  = 3306
   protocol                 = "tcp"
-  source_security_group_id = aws_security_group.dms.id
-  security_group_id        = aws_security_group.mysql[0].id
-  description              = "DMS replication instance to IDC MySQL EC2 via Site-to-Site VPN"
+  cidr_blocks       = ["10.1.0.0/16"]
+  security_group_id = aws_security_group.mysql[0].id
+  description       = "DMS replication instance to IDC MySQL EC2 via Site-to-Site VPN"
 }
 
 # ── OpenSearch (VPC 배포) ──────────────────────────────────────────────────────

@@ -78,7 +78,3 @@ resource "azurerm_virtual_network_gateway_connection" "to_aws" {
 
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
-output "vpn_gateway_public_ip" {
-  description = "Azure VPN Gateway 공인 IP → terraform/terraform.tfvars의 azure_vpn_gateway_ip에 입력"
-  value       = azurerm_public_ip.vpn_gateway.ip_address
-}

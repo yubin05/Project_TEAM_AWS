@@ -21,7 +21,7 @@
 
 data "archive_file" "cw_transform" {
   type        = "zip"
-  output_path = "${path.module}/lambda_cw_transform.zip"
+  output_path = "${path.module}/../lambda/lambda_cw_transform.zip"
 
   source {
     filename = "index.py"
@@ -180,10 +180,11 @@ resource "aws_kinesis_firehose_delivery_stream" "logs_to_opensearch" {
 
 resource "aws_cloudwatch_log_subscription_filter" "apigateway_to_firehose" {
   name            = "apigateway-to-firehose"
-  log_group_name  = aws_cloudwatch_log_group.apigateway.name
+  log_group_name  = aws_cloudwatch_log_group.api_gateway.name
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "lambda_booking_to_firehose" {
@@ -192,6 +193,7 @@ resource "aws_cloudwatch_log_subscription_filter" "lambda_booking_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "lambda_image_to_firehose" {
@@ -200,6 +202,7 @@ resource "aws_cloudwatch_log_subscription_filter" "lambda_image_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "lambda_cognito_to_firehose" {
@@ -208,6 +211,7 @@ resource "aws_cloudwatch_log_subscription_filter" "lambda_cognito_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "waf_to_firehose" {
@@ -216,6 +220,7 @@ resource "aws_cloudwatch_log_subscription_filter" "waf_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "vpc_flowlogs_to_firehose" {
@@ -224,6 +229,7 @@ resource "aws_cloudwatch_log_subscription_filter" "vpc_flowlogs_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "cloudtrail_to_firehose" {
@@ -232,6 +238,7 @@ resource "aws_cloudwatch_log_subscription_filter" "cloudtrail_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 # ── ECS 서비스 로그 (5개) ────────────────────────────────────
@@ -243,6 +250,7 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_auth_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "ecs_hotel_to_firehose" {
@@ -251,6 +259,7 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_hotel_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "ecs_booking_to_firehose" {
@@ -259,6 +268,7 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_booking_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "ecs_review_to_firehose" {
@@ -267,6 +277,7 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_review_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "ecs_support_to_firehose" {
@@ -275,6 +286,7 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_support_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 # ── DMS 태스크 로그 ──────────────────────────────────────────
@@ -284,29 +296,33 @@ resource "aws_cloudwatch_log_subscription_filter" "dms_task_to_firehose" {
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 # ── RDS Aurora 로그 (error / general / slowquery) ────────────
 resource "aws_cloudwatch_log_subscription_filter" "rds_error_to_firehose" {
   name            = "rds-error-to-firehose"
-  log_group_name  = aws_cloudwatch_log_group.rds_error.name
+  log_group_name  = "/aws/rds/cluster/threetier-aurora-cluster/error"
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "rds_general_to_firehose" {
   name            = "rds-general-to-firehose"
-  log_group_name  = aws_cloudwatch_log_group.rds_general.name
+  log_group_name  = "/aws/rds/cluster/threetier-aurora-cluster/general"
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose, aws_cloudwatch_log_group.rds_general]
 }
 
 resource "aws_cloudwatch_log_subscription_filter" "rds_slowquery_to_firehose" {
   name            = "rds-slowquery-to-firehose"
-  log_group_name  = aws_cloudwatch_log_group.rds_slowquery.name
+  log_group_name  = "/aws/rds/cluster/threetier-aurora-cluster/slowquery"
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose, aws_cloudwatch_log_group.rds_slowquery]
 }
