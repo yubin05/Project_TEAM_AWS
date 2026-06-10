@@ -179,4 +179,4 @@ terraform-azure/*.tfvars
 .local/
 
 # lambda
-lambda/lambda_cw_transform.zip
+# lambda/lambda_cw_transform.zip
