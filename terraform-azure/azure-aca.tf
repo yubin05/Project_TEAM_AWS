@@ -4,23 +4,13 @@ resource "azurerm_container_app_environment" "main" {
   resource_group_name      = azurerm_resource_group.main.name
   infrastructure_subnet_id = azurerm_subnet.aca.id
 
-  # infrastructure_resource_group_name은 Azure가 생성 시 자동 배정(ME_... 접두사)하는 값이라
-  # 설정하지 않으면 plan마다 null과의 차이로 매번 재생성(replace)되는 것으로 잡힘 — 드리프트 무시 처리
   lifecycle {
     ignore_changes = [infrastructure_resource_group_name]
   }
 }
 
-# 마이크로서비스 5개(auth/hotel/booking/review/support) 정의(azurerm_container_app)는
-# CI/CD 파트의 ACR 이미지 태그/네이밍 규칙이 확정된 뒤 추가 예정
-locals {
-  services = ["auth-service", "hotel-service", "booking-service", "review-service", "support-service"]
-}
-
-resource "azurerm_container_app" "services" {
-  for_each = toset(local.services)
-
-  name                         = each.key
+resource "azurerm_container_app" "auth_service" {
+  name                         = "auth-service"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
@@ -34,13 +24,24 @@ resource "azurerm_container_app" "services" {
     identity = "system"
   }
 
+  ingress {
+    external_enabled = true
+    target_port      = 3001
+    transport        = "http"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
   template {
     min_replicas = var.aca_min_replicas
     max_replicas = var.aca_max_replicas
 
     container {
-      name   = each.key
-      image  = "${azurerm_container_registry.main.login_server}/${each.key}:latest"
+      name   = "auth-service"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
       cpu    = 0.25
       memory = "0.5Gi"
     }
@@ -51,8 +52,218 @@ resource "azurerm_container_app" "services" {
     }
   }
 
-  # [apply 완료 후 이 블록을 아래로 복원]
-  # lifecycle {
-  #   ignore_changes = [template]
-  # }
+  lifecycle {
+    ignore_changes = [template, workload_profile_name]
+  }
+}
+
+resource "azurerm_container_app" "hotel_service" {
+  name                         = "hotel-service"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = "system"
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 3002
+    transport        = "http"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  template {
+    min_replicas = var.aca_min_replicas
+    max_replicas = var.aca_max_replicas
+
+    container {
+      name   = "hotel-service"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = var.aca_http_concurrent_requests
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template, workload_profile_name]
+  }
+
+  depends_on = [azurerm_container_app.auth_service]
+}
+
+resource "azurerm_container_app" "booking_service" {
+  name                         = "booking-service"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = "system"
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 3003
+    transport        = "http"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  template {
+    min_replicas = var.aca_min_replicas
+    max_replicas = var.aca_max_replicas
+
+    container {
+      name   = "booking-service"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = var.aca_http_concurrent_requests
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template, workload_profile_name]
+  }
+
+  depends_on = [azurerm_container_app.hotel_service]
+}
+
+resource "azurerm_container_app" "review_service" {
+  name                         = "review-service"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = "system"
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 3004
+    transport        = "http"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  template {
+    min_replicas = var.aca_min_replicas
+    max_replicas = var.aca_max_replicas
+
+    container {
+      name   = "review-service"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = var.aca_http_concurrent_requests
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template, workload_profile_name]
+  }
+
+  depends_on = [azurerm_container_app.booking_service]
+}
+
+resource "azurerm_container_app" "support_service" {
+  name                         = "support-service"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  registry {
+    server   = azurerm_container_registry.main.login_server
+    identity = "system"
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 3005
+    transport        = "http"
+
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
+    }
+  }
+
+  template {
+    min_replicas = var.aca_min_replicas
+    max_replicas = var.aca_max_replicas
+
+    container {
+      name   = "support-service"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+    }
+
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = var.aca_http_concurrent_requests
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [template, workload_profile_name]
+  }
+
+  depends_on = [azurerm_container_app.review_service]
+}
+
+# azure-acr.tf의 for_each에서 참조하는 map
+locals {
+  all_container_apps = {
+    "auth-service"    = azurerm_container_app.auth_service
+    "hotel-service"   = azurerm_container_app.hotel_service
+    "booking-service" = azurerm_container_app.booking_service
+    "review-service"  = azurerm_container_app.review_service
+    "support-service" = azurerm_container_app.support_service
+  }
 }

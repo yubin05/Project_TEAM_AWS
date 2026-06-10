@@ -1,9 +1,4 @@
-# AWS API Gateway(HTTP API + VPC Link → ALB)에 대응되는 통합 진입점.
-# Active-Active 구조에서 Route 53/Traffic Manager가 클라우드당 단일 엔드포인트를
-# 기준으로 라우팅하므로, ACA 서비스별 개별 ingress 대신 APIM으로 묶는다.
-
 resource "azurerm_api_management" "main" {
-  # "threetier-dr-apim"이 Azure 백엔드에 소프트 삭제 상태(고아 상태)로 남아 충돌 발생 — 새 이름으로 우회
   name                = "${var.project_prefix}-apim-v2"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
@@ -11,10 +6,88 @@ resource "azurerm_api_management" "main" {
   publisher_name  = var.apim_publisher_name
   publisher_email = var.apim_publisher_email
 
-  # Consumption: 사용량 기반 과금, DR 보조 인프라 용도에 적합 (상시 인스턴스 비용 없음)
   sku_name = "Consumption_0"
 }
 
-# 서비스별 API/백엔드 정의(auth/hotel/booking/review/support)는
-# ACA 서비스(azurerm_container_app) 5개의 엔드포인트가 확정된 뒤 추가 예정.
-# AWS 쪽 라우트 구성(apigateway.tf)과 동일하게 경로 기준으로 각 ACA 서비스에 매핑.
+# 단일 통합 API — 경로별 라우팅은 인바운드 정책의 choose 블록에서 처리
+resource "azurerm_api_management_api" "main" {
+  name                  = "sponge-trip-api"
+  resource_group_name   = azurerm_resource_group.main.name
+  api_management_name   = azurerm_api_management.main.name
+  revision              = "1"
+  display_name          = "Sponge Trip API"
+  path                  = ""
+  protocols             = ["https"]
+  subscription_required = false
+}
+
+# 각 HTTP 메서드별 catch-all 오퍼레이션
+resource "azurerm_api_management_api_operation" "catchall" {
+  for_each = toset(["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"])
+
+  operation_id        = "catchall-${lower(each.key)}"
+  api_name            = azurerm_api_management_api.main.name
+  api_management_name = azurerm_api_management.main.name
+  resource_group_name = azurerm_resource_group.main.name
+  display_name        = "Catch-all ${each.key}"
+  method              = each.key
+  url_template        = "/*"
+}
+
+# CORS + 경로 기반 백엔드 라우팅 정책
+resource "azurerm_api_management_api_policy" "main" {
+  api_name            = azurerm_api_management_api.main.name
+  api_management_name = azurerm_api_management.main.name
+  resource_group_name = azurerm_resource_group.main.name
+
+  xml_content = <<-XML
+    <policies>
+      <inbound>
+        <base />
+        <cors allow-credentials="true">
+          <allowed-origins>
+            <origin>https://calm-plant-04a6be700.7.azurestaticapps.net</origin>
+            <origin>http://localhost:3000</origin>
+          </allowed-origins>
+          <allowed-methods preflight-result-max-age="300">
+            <method>*</method>
+          </allowed-methods>
+          <allowed-headers>
+            <header>*</header>
+          </allowed-headers>
+          <expose-headers>
+            <header>*</header>
+          </expose-headers>
+        </cors>
+        <choose>
+          <when condition="@(context.Request.Url.Path.StartsWith("/auth"))">
+            <set-backend-service base-url="https://${azurerm_container_app.auth_service.ingress[0].fqdn}" />
+          </when>
+          <when condition="@(context.Request.Url.Path.Contains("/reviews"))">
+            <set-backend-service base-url="https://${azurerm_container_app.review_service.ingress[0].fqdn}" />
+          </when>
+          <when condition="@(context.Request.Url.Path.StartsWith("/hotels") || context.Request.Url.Path.StartsWith("/wishlist") || context.Request.Url.Path.StartsWith("/recommend"))">
+            <set-backend-service base-url="https://${azurerm_container_app.hotel_service.ingress[0].fqdn}" />
+          </when>
+          <when condition="@(context.Request.Url.Path.StartsWith("/bookings"))">
+            <set-backend-service base-url="https://${azurerm_container_app.booking_service.ingress[0].fqdn}" />
+          </when>
+          <otherwise>
+            <set-backend-service base-url="https://${azurerm_container_app.support_service.ingress[0].fqdn}" />
+          </otherwise>
+        </choose>
+      </inbound>
+      <backend>
+        <base />
+      </backend>
+      <outbound>
+        <base />
+      </outbound>
+      <on-error>
+        <base />
+      </on-error>
+    </policies>
+  XML
+
+  depends_on = [azurerm_api_management_api_operation.catchall]
+}

@@ -38,6 +38,21 @@ resource "azurerm_network_security_rule" "allow_aca_mysql" {
   network_security_group_name = azurerm_network_security_group.database.name
 }
 
+# VNet 내부 → ACA 서비스 포트 허용 (APIM 등 VNet 내부 → 각 마이크로서비스)
+resource "azurerm_network_security_rule" "allow_vnet_aca_services" {
+  name                        = "allow-vnet-aca-services"
+  priority                    = 100
+  direction                   = "Inbound"
+  access                      = "Allow"
+  protocol                    = "Tcp"
+  source_port_range           = "*"
+  destination_port_range      = "3001-3005"
+  source_address_prefix       = "VirtualNetwork"
+  destination_address_prefix  = "*"
+  resource_group_name         = azurerm_resource_group.main.name
+  network_security_group_name = azurerm_network_security_group.aca.name
+}
+
 # AWS VPC → MySQL 3306 허용 (DMS CDC 복제 — VPN Site-to-Site 경유)
 resource "azurerm_network_security_rule" "allow_aws_dms_mysql" {
   name                        = "allow-aws-dms-mysql"
