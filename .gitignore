@@ -146,6 +146,7 @@ backend/dist/
 
 # Claude Code session data
 .claude/
+CLAUDE.md
 
 # Lambda build artifacts
 
