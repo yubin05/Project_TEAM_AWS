@@ -8,3 +8,5 @@ const SUPPORT_BASE = window.__SUPPORT_BASE__ || 'https://support-service.mangori
 const AZURE_MAPS_KEY = window.__AZURE_MAPS_KEY__ || '';
 
 // v2
+
+// v2
