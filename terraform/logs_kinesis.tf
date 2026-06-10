@@ -161,6 +161,13 @@ resource "aws_kinesis_firehose_delivery_stream" "logs_to_opensearch" {
       log_group_name  = "/aws/kinesisfirehose/threetier-logs-to-opensearch"
       log_stream_name = "DestinationDelivery"
     }
+
+    # Firehose가 VPC 내 OpenSearch에 접근하기 위한 ENI 설정
+    vpc_config {
+      subnet_ids         = [aws_subnet.private_backend.id]
+      security_group_ids = [aws_security_group.firehose_to_opensearch.id]
+      role_arn           = aws_iam_role.firehose.arn
+    }
   }
 
   tags = { Name = "threetier-logs-to-opensearch", Project = "threetier" }

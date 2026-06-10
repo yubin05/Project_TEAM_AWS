@@ -150,6 +150,10 @@ backend/dist/
 # Lambda build artifacts
 lambda/*.zip
 
+# Terraform 자동 생성 파일 (archive_file, local_file)
+terraform/*.zip
+terraform/opensearch_setup.sh
+
 # Terraform
 terraform/.terraform/
 terraform/terraform.tfstate

@@ -88,7 +88,7 @@ def parse_line(line):
         'service':         'alb',
         'level':           level,
         'elb_status_code': status,
-        'client_ip':       fields[3].split(':')[0],
+        'client_ip':       fields[3].strip('"[]').rsplit(':', 1)[0],
         'request':         fields[12].strip('"'),
         'user_agent':      fields[13].strip('"') if len(fields) > 13 else '-',
         'response_time_ms': resp_ms,

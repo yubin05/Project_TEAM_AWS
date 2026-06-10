@@ -312,3 +312,65 @@ resource "aws_security_group_rule" "mysql_from_dms" {
   security_group_id        = aws_security_group.mysql[0].id
   description              = "DMS replication instance to IDC MySQL EC2 via Site-to-Site VPN"
 }
+
+# ── OpenSearch (VPC 배포) ──────────────────────────────────────────────────────
+resource "aws_security_group" "opensearch" {
+  name        = "ThreeTier-OpenSearch-SG"
+  description = "OpenSearch VPC domain — Firehose and SSM tunnel only"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-OpenSearch-SG" }
+
+  ingress {
+    description     = "Firehose → OpenSearch"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.firehose_to_opensearch.id]
+  }
+
+  ingress {
+    description     = "SSM tunnel EC2 → OpenSearch Dashboards"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ssm_tunnel.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Firehose가 VPC 내 OpenSearch로 데이터를 전송할 때 사용하는 SG
+resource "aws_security_group" "firehose_to_opensearch" {
+  name        = "ThreeTier-Firehose-OpenSearch-SG"
+  description = "Firehose ENI SG for VPC OpenSearch delivery"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-Firehose-OpenSearch-SG" }
+
+  egress {
+    description = "Firehose to OpenSearch port 443"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
+}
+
+# SSM 포트 포워딩 터널용 EC2 SG — 인바운드 전체 차단, 아웃바운드만 허용
+resource "aws_security_group" "ssm_tunnel" {
+  name        = "ThreeTier-SSMTunnel-SG"
+  description = "SSM Session Manager tunnel EC2 — no inbound ports"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-SSMTunnel-SG" }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}

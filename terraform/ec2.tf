@@ -87,6 +87,7 @@ resource "aws_instance" "mysql" {
   user_data = <<-EOF
 #!/bin/bash
 hostnamectl --static set-hostname ThreeTier-MySQL-EC2
+
 cat <<EOT > /etc/profile.d/prompt.sh
 export PS1="[\[\e[1;31m\]\u\[\e[m\]@\[\e[1;32m\]\h\[\e[m\]: \[\e[1;36m\]\w\[\e[m\]]#"
 EOT
@@ -108,4 +109,24 @@ DB_PASSWORD="${var.db_password}" bash /tmp/mysql_install.sh
 MYSQL_HOST=127.0.0.1 MYSQL_USER=root MYSQL_PASSWORD="${var.db_password}" bash /tmp/run-seed.sh
 touch /tmp/mysql_ready
 EOF
+}
+
+# ── SSM 터널 EC2 ──────────────────────────────────────────────────────────────
+# OpenSearch가 VPC private subnet에 배포되면 퍼블릭 엔드포인트가 없으므로
+# 로컬 PC → SSM 포트 포워딩 → 이 EC2 경유 → OpenSearch Dashboards 접근
+# 키 페어 없음 / 인바운드 포트 전체 차단 / SSM VPC 엔드포인트 경유로 연결
+# enable_opensearch_tunnel = true 일 때만 생성 (평소 false → 비용 절감)
+resource "aws_instance" "ssm_tunnel" {
+  count                  = var.enable_opensearch_tunnel ? 1 : 0
+  ami                    = local.ami_id
+  instance_type          = "t3.micro"
+  iam_instance_profile   = aws_iam_instance_profile.ssm.name
+  subnet_id              = aws_subnet.private_backend.id
+  vpc_security_group_ids = [aws_security_group.ssm_tunnel.id]
+  tags                   = { Name = "ThreeTier-SSMTunnel-EC2", Project = "threetier" }
+}
+
+output "ssm_tunnel_instance_id" {
+  value       = var.enable_opensearch_tunnel ? aws_instance.ssm_tunnel[0].id : "enable_opensearch_tunnel = true 로 설정 후 terraform apply 필요"
+  description = "SSM 포트 포워딩 명령에 사용할 EC2 인스턴스 ID"
 }

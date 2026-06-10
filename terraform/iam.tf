@@ -271,14 +271,32 @@ resource "aws_iam_role_policy" "firehose" {
         Resource = [aws_opensearch_domain.logs.arn, "${aws_opensearch_domain.logs.arn}/*"]
       },
       {
-        Effect   = "Allow"
-        Action   = "lambda:InvokeFunction"
-        Resource = aws_lambda_function.cw_transform.arn
+        Effect = "Allow"
+        Action = "lambda:InvokeFunction"
+        Resource = [
+          aws_lambda_function.cw_transform.arn,
+          "${aws_lambda_function.cw_transform.arn}:$$LATEST"
+        ]
       },
       {
         Effect = "Allow"
         Action = ["logs:PutLogEvents", "logs:CreateLogGroup", "logs:CreateLogStream"]
         Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
+      },
+      {
+        # Firehose가 VPC 내부 OpenSearch로 전송하기 위해 ENI를 생성·관리하는 권한
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeVpcs",
+          "ec2:DescribeVpcAttribute",
+          "ec2:DescribeSubnets",
+          "ec2:DescribeSecurityGroups",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:CreateNetworkInterface",
+          "ec2:CreateNetworkInterfacePermission",
+          "ec2:DeleteNetworkInterface"
+        ]
+        Resource = "*"
       }
     ]
   })
