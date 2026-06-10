@@ -16,6 +16,14 @@ resource "aws_appautoscaling_target" "ecs" {
   scalable_dimension = "ecs:service:DesiredCount"
   min_capacity       = 1
   max_capacity       = 4
+
+  depends_on = [
+    aws_ecs_service.auth,
+    aws_ecs_service.hotel,
+    aws_ecs_service.booking,
+    aws_ecs_service.review,
+    aws_ecs_service.support,
+  ]
 }
 
 # ── CPU 기반 스케일링 (60% 목표) ──────────────────────────────────────────────

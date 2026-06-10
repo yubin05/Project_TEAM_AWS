@@ -241,6 +241,14 @@ resource "aws_cloudwatch_log_metric_filter" "ecs_error" {
     value         = "1"
     default_value = "0"
   }
+
+  depends_on = [
+    aws_cloudwatch_log_group.auth,
+    aws_cloudwatch_log_group.hotel,
+    aws_cloudwatch_log_group.booking,
+    aws_cloudwatch_log_group.review,
+    aws_cloudwatch_log_group.support,
+  ]
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_error_rate" {
