@@ -115,6 +115,18 @@ variable "opensearch_master_password" {
   sensitive   = true
 }
 
+variable "opensearch_allowed_ips" {
+  description = "OpenSearch 접근 허용 공인 IP 목록 (CIDR). terraform.tfvars에 팀원 IP 입력"
+  type        = list(string)
+  default     = []
+}
+
+variable "enable_opensearch_tunnel" {
+  description = "OpenSearch Dashboards 접근용 SSM 터널 EC2 생성 여부. 대시보드 확인이 필요할 때만 true로 설정 (평소 false로 비용 절감)"
+  type        = bool
+  default     = false
+}
+
 # ── AWS ↔ Azure Site-to-Site VPN ─────────────────────────────────────────────
 variable "azure_vpn_gateway_ip" {
   description = "Azure VPN Gateway 퍼블릭 IP (1차 azure apply 후 출력값 입력). 입력 전까지 AWS VPN 리소스 생성 skip"
