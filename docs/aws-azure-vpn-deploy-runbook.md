@@ -106,7 +106,7 @@ MySQL EC2, IDC VPN, DMS Full Load 태스크 자동 삭제.
 ### ① Azure apply (Azure VPN Gateway IP 취득)
 
 ```bash
-cd terraform-azure && terraform apply -var-file=terraform.tfvars
+cd terraform-azure && terraform apply -var-file=main.tfvars
 ```
 
 output에서 확인:
@@ -123,8 +123,12 @@ azure_vpn_gateway_ip = "위에서 나온 IP"
 
 ### ③ AWS apply (AWS VPN Tunnel IP 취득)
 
+> Phase 1 최초 apply 시 `azure_vpn_gateway_ip`에 임시/이전 IP로 이미 customer gateway/vpn connection이 생성된 상태.
+> AWS customer gateway는 `ip_address` 변경이 불가능(immutable)하므로, 새 Azure IP로 갱신하려면
+> vpn_connection → customer_gateway 순으로 삭제 후 재생성해야 함 → `-replace`로 명시.
+
 ```bash
-cd terraform && terraform apply -var-file=main.tfvars
+cd terraform && terraform apply -var-file=main.tfvars -replace="aws_vpn_connection.azure[0]" -replace="aws_customer_gateway.azure[0]"
 ```
 
 output에서 확인:
@@ -134,7 +138,7 @@ vpn_azure_tunnel1_address = "3.35.57.106"  # 예시
 
 ### ④ Azure tfvars 업데이트
 
-`terraform-azure/terraform.tfvars`:
+`terraform-azure/main.tfvars`:
 ```hcl
 aws_vpn_tunnel_ip = "위에서 나온 IP"
 ```
@@ -142,7 +146,7 @@ aws_vpn_tunnel_ip = "위에서 나온 IP"
 ### ⑤ Azure apply 재실행 (터널 UP)
 
 ```bash
-cd terraform-azure && terraform apply -var-file=terraform.tfvars
+cd terraform-azure && terraform apply -var-file=main.tfvars
 ```
 
 VPN 터널 상태 확인:
@@ -217,7 +221,7 @@ aws dms describe-replication-tasks --query "ReplicationTasks[?ReplicationTaskIde
 | 3-① | terraform-azure apply | Azure VPN IP 취득 |
 | 3-② | AWS main.tfvars 업데이트 | azure_vpn_gateway_ip |
 | 3-③ | terraform apply | AWS Tunnel IP 취득 |
-| 3-④ | Azure terraform.tfvars 업데이트 | aws_vpn_tunnel_ip |
+| 3-④ | Azure main.tfvars 업데이트 | aws_vpn_tunnel_ip |
 | 3-⑤ | terraform-azure apply | 터널 UP |
 | 3-⑥ | Aurora 재부팅 | binlog 활성화 |
 | 3-⑦ | dms_replicator 계정 생성 | **수동** |

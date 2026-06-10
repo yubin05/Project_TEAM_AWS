@@ -34,6 +34,16 @@ resource "azurerm_mysql_flexible_server" "main" {
   }
 
   # AWS DMS ongoing replication(CDC)의 복제 타겟으로 사용 예정 (RPO 5분 요구사항)
-  # DMS 복제 인스턴스가 VNet 외부(AWS)에 있으므로, DMS↔Azure DB 간 경로(VPN/Private Link 등)는
+  # DMS 복제 인스턴스가 VNet 외부(AWS)에 있으므로, DMS↔Azure DB 간 경로(VPN/Private Link등)는
   # 보안 파트와 별도 조율 필요 — DB 자체는 퍼블릭 엔드포인트 없이 VNet 내부 접근만 허용
+}
+
+# MySQL 8.0.30+ 기본값(ON)인 invisible PK 컬럼(my_row_id) 자동 생성 비활성화.
+# ON 상태면 DMS가 PK 없이 CREATE TABLE 후 별도 ALTER TABLE ADD PRIMARY KEY를 실행할 때
+# "Multiple primary key defined"(1068) 에러로 모든 테이블이 Table error 상태가 됨.
+resource "azurerm_mysql_flexible_server_configuration" "disable_invisible_pk" {
+  name                = "sql_generate_invisible_primary_key"
+  resource_group_name = azurerm_resource_group.main.name
+  server_name         = azurerm_mysql_flexible_server.main.name
+  value               = "OFF"
 }

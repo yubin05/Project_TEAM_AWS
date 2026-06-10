@@ -57,6 +57,8 @@ cat >> /etc/ipsec.secrets << IPSEC_SECRETS
 $CGW_IP $VGW_IP : PSK "$PSK"
 IPSEC_SECRETS
 
+# VPN 터널 대상(Main VPC)로 가는 트래픽은 MASQUERADE 제외 (IPsec 셀렉터 유지 위해 출발지 IP 보존)
+iptables -t nat -A POSTROUTING -s 10.0.0.0/16 -d 10.1.0.0/16 -j ACCEPT
 # IDC VPC 내부 트래픽을 인터넷으로 MASQUERADE (MySQL EC2 → SSM 등 outbound)
 iptables -t nat -A POSTROUTING -s 10.0.0.0/16 ! -d 10.0.0.0/16 -j MASQUERADE
 iptables -A FORWARD -j ACCEPT
