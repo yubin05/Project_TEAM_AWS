@@ -6,3 +6,5 @@ const SUPPORT_BASE = window.__SUPPORT_BASE__ || 'https://support-service.mangori
 
 // Azure Maps 키 (Azure Portal에서 도메인 제한 설정 필요)
 const AZURE_MAPS_KEY = window.__AZURE_MAPS_KEY__ || '';
+
+// v2
