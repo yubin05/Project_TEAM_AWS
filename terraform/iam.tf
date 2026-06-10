@@ -275,7 +275,7 @@ resource "aws_iam_role_policy" "firehose" {
         Action = "lambda:InvokeFunction"
         Resource = [
           aws_lambda_function.cw_transform.arn,
-          "${aws_lambda_function.cw_transform.arn}:$$LATEST"
+          format("%s:$LATEST", aws_lambda_function.cw_transform.arn)
         ]
       },
       {

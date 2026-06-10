@@ -27,8 +27,8 @@ data "archive_file" "cw_transform" {
     filename = "index.py"
     content  = <<-PYTHON
 import base64, gzip, json, re
+from datetime import datetime, timezone
 
-# logGroup → 카테고리 매핑
 CATEGORY_MAP = [
     ('/aws/cloudtrail/',         'Audit'),
     ('/aws/dms/',                'Migration'),
@@ -40,8 +40,8 @@ CATEGORY_MAP = [
     ('aws-waf-logs',             'Application'),
 ]
 
-# 로그 레벨 키워드 추출 (대소문자 무관)
 LEVEL_RE = re.compile(r'\b(FATAL|CRITICAL|ERROR|WARN(?:ING)?|INFO|DEBUG|TRACE)\b', re.IGNORECASE)
+LEVEL_RANK = {'FATAL': 5, 'CRITICAL': 4, 'ERROR': 3, 'WARN': 2, 'INFO': 1, 'DEBUG': 0, 'TRACE': 0}
 
 def get_category(log_group):
     for prefix, cat in CATEGORY_MAP:
@@ -50,9 +50,6 @@ def get_category(log_group):
     return 'Application'
 
 def get_service(log_group):
-    # /ecs/booking-service    → booking-service
-    # /aws/lambda/image-resize → image-resize
-    # /aws/apigateway/threetier-http-api → threetier-http-api
     return log_group.rstrip('/').split('/')[-1]
 
 def get_level(message):
@@ -80,24 +77,26 @@ def lambda_handler(event, context):
 
         category = get_category(log_data['logGroup'])
         service  = get_service(log_data['logGroup'])
-        lines = []
-        for ev in log_data.get('logEvents', []):
-            message = ev['message']
-            lines.append(json.dumps({
-                'timestamp': ev['timestamp'],
-                'logGroup':  log_data['logGroup'],
-                'logStream': log_data['logStream'],
-                'category':  category,
-                'service':   service,
-                'level':     get_level(message),
-                'message':   message
-            }))
+        events   = log_data.get('logEvents', [])
 
-        if lines:
-            encoded = base64.b64encode(('\n'.join(lines) + '\n').encode()).decode()
-            output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': encoded})
-        else:
+        if not events:
             output.append({'recordId': record['recordId'], 'result': 'Dropped', 'data': record['data']})
+            continue
+
+        # Firehose 1-record-in → 1-record-out 제약: 배치 중 가장 높은 레벨 이벤트 하나만 반환
+        best = max(events, key=lambda e: LEVEL_RANK.get(get_level(e['message']), 1))
+        doc = json.dumps({
+            'timestamp':   datetime.fromtimestamp(best['timestamp'] / 1000, tz=timezone.utc).strftime('%Y-%m-%dT%H:%M:%S.%f')[:-3] + 'Z',
+            'logGroup':    log_data['logGroup'],
+            'logStream':   log_data['logStream'],
+            'category':    category,
+            'service':     service,
+            'level':       get_level(best['message']),
+            'message':     best['message'],
+            'event_count': len(events),
+        })
+        encoded = base64.b64encode((doc + '\n').encode()).decode()
+        output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': encoded})
 
     return {'records': output}
 PYTHON

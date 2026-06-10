@@ -316,12 +316,12 @@ resource "aws_security_group_rule" "mysql_from_dms" {
 # ── OpenSearch (VPC 배포) ──────────────────────────────────────────────────────
 resource "aws_security_group" "opensearch" {
   name        = "ThreeTier-OpenSearch-SG"
-  description = "OpenSearch VPC domain — Firehose and SSM tunnel only"
+  description = "OpenSearch VPC domain - Firehose and SSM tunnel only"
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "ThreeTier-OpenSearch-SG" }
 
   ingress {
-    description     = "Firehose → OpenSearch"
+    description     = "Firehose to OpenSearch"
     from_port       = 443
     to_port         = 443
     protocol        = "tcp"
@@ -329,7 +329,7 @@ resource "aws_security_group" "opensearch" {
   }
 
   ingress {
-    description     = "SSM tunnel EC2 → OpenSearch Dashboards"
+    description     = "SSM tunnel EC2 to OpenSearch Dashboards"
     from_port       = 443
     to_port         = 443
     protocol        = "tcp"
@@ -363,7 +363,7 @@ resource "aws_security_group" "firehose_to_opensearch" {
 # SSM 포트 포워딩 터널용 EC2 SG — 인바운드 전체 차단, 아웃바운드만 허용
 resource "aws_security_group" "ssm_tunnel" {
   name        = "ThreeTier-SSMTunnel-SG"
-  description = "SSM Session Manager tunnel EC2 — no inbound ports"
+  description = "SSM Session Manager tunnel EC2 - no inbound ports"
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "ThreeTier-SSMTunnel-SG" }
 
