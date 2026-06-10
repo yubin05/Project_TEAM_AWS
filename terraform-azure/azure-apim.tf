@@ -60,16 +60,16 @@ resource "azurerm_api_management_api_policy" "main" {
           </expose-headers>
         </cors>
         <choose>
-          <when condition="@(context.Request.Url.Path.StartsWith("/auth"))">
+          <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/auth"))">
             <set-backend-service base-url="https://${azurerm_container_app.auth_service.ingress[0].fqdn}" />
           </when>
-          <when condition="@(context.Request.Url.Path.Contains("/reviews"))">
+          <when condition="@(context.Request.OriginalUrl.Path.Contains("/reviews"))">
             <set-backend-service base-url="https://${azurerm_container_app.review_service.ingress[0].fqdn}" />
           </when>
-          <when condition="@(context.Request.Url.Path.StartsWith("/hotels") || context.Request.Url.Path.StartsWith("/wishlist") || context.Request.Url.Path.StartsWith("/recommend"))">
+          <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/hotels") || context.Request.OriginalUrl.Path.StartsWith("/wishlist") || context.Request.OriginalUrl.Path.StartsWith("/recommend"))">
             <set-backend-service base-url="https://${azurerm_container_app.hotel_service.ingress[0].fqdn}" />
           </when>
-          <when condition="@(context.Request.Url.Path.StartsWith("/bookings"))">
+          <when condition="@(context.Request.OriginalUrl.Path.StartsWith("/bookings"))">
             <set-backend-service base-url="https://${azurerm_container_app.booking_service.ingress[0].fqdn}" />
           </when>
           <otherwise>
