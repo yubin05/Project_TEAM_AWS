@@ -324,6 +324,12 @@ resource "aws_apigatewayv2_route" "inquiries_admin_answer" {
   target    = local.int_support
 }
 
+resource "aws_apigatewayv2_route" "support_chat" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /chat"
+  target    = local.int_support
+}
+
 # ── Stage ─────────────────────────────────────────────────────────────────────
 resource "aws_cloudwatch_log_group" "api_gateway" {
   name              = "/aws/apigateway/threetier-http-api"

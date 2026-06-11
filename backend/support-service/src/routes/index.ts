@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import { chat } from '../controllers/chatController';
 import { v4 as uuidv4 } from 'uuid';
 import { CognitoJwtVerifier } from 'aws-jwt-verify';
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
@@ -162,5 +163,7 @@ router.get('/notices', async (_req: Request, res: Response) => {
   );
   res.json({ success: true, data: rows });
 });
+
+router.post('/chat', chat);
 
 export default router;
