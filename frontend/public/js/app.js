@@ -1837,11 +1837,22 @@ function toggleChatbot() {
   }
 }
 
+function formatBotText(text) {
+  return text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\n/g, '<br>');
+}
+
 function appendChatBubble(role, text) {
   const messages = document.getElementById('chatbot-messages');
   const bubble = document.createElement('div');
   bubble.className = `chat-bubble ${role}`;
-  bubble.textContent = text;
+  if (role.includes('bot')) {
+    bubble.innerHTML = formatBotText(text);
+  } else {
+    bubble.textContent = text;
+  }
   messages.appendChild(bubble);
   messages.scrollTop = messages.scrollHeight;
   return bubble;
@@ -1873,7 +1884,7 @@ async function sendChatMessage() {
     chatHistory.push({ role: 'assistant', content: reply });
 
     typingBubble.className = 'chat-bubble bot';
-    typingBubble.textContent = reply;
+    typingBubble.innerHTML = formatBotText(reply);
   } catch {
     typingBubble.className = 'chat-bubble bot';
     typingBubble.textContent = '오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
