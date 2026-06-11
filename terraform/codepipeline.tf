@@ -261,6 +261,10 @@ resource "aws_codebuild_project" "main" {
       value = aws_sqs_queue.booking_notification.url
     }
     environment_variable {
+      name  = "RATING_QUEUE_URL"
+      value = aws_sqs_queue.rating_queue.url
+    }
+    environment_variable {
       name  = "S3_UPLOADS_BUCKET"
       value = aws_s3_bucket.uploads.id
     }

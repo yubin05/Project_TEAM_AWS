@@ -100,7 +100,9 @@ resource "aws_ecs_task_definition" "hotel" {
       { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}:3003" },
       { name = "REVIEW_SERVICE_URL",   value = "http://${aws_lb.internal.dns_name}:3004" },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
-      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id },
+      { name = "SQS_ENDPOINT",         value = "https://sqs.${var.aws_region}.amazonaws.com/" },
+      { name = "SQS_QUEUE_URL",        value = aws_sqs_queue.rating_queue.url }
     ]
     secrets = [
       { name = "DB_PASSWORD",             valueFrom = "${data.aws_secretsmanager_secret.hotel.arn}:DB_PASSWORD::" },
@@ -185,7 +187,9 @@ resource "aws_ecs_task_definition" "review" {
       { name = "BOOKING_SERVICE_URL",  value = "http://${aws_lb.internal.dns_name}:3003" },
       { name = "HOTEL_SERVICE_URL",    value = "http://${aws_lb.internal.dns_name}:3002" },
       { name = "COGNITO_USER_POOL_ID", value = var.cognito_user_pool_id },
-      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id }
+      { name = "COGNITO_CLIENT_ID",    value = var.cognito_client_id },
+      { name = "SQS_ENDPOINT",         value = "https://sqs.${var.aws_region}.amazonaws.com/" },
+      { name = "SQS_QUEUE_URL",        value = aws_sqs_queue.rating_queue.url }
     ]
     secrets = [
       { name = "DB_PASSWORD",     valueFrom = "${data.aws_secretsmanager_secret.review.arn}:DB_PASSWORD::" },
