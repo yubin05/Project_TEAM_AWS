@@ -385,7 +385,6 @@ function renderHotelCard(hotel) {
   const placeholder = 'https://placehold.co/400x300?text=No+Image';
   const original = hotel.images && hotel.images.length > 0 ? hotel.images[0] : placeholder;
   const img = getThumbnailUrl(original);
-  const discountRate = 10;
   const categoryMap = { hotel: '호텔', motel: '모텔', pension: '펜션', guesthouse: '게스트하우스', resort: '리조트', camping: '캠핑' };
   const minPrice = hotel.min_price ? Math.floor(hotel.min_price) : 0;
   return `
@@ -550,7 +549,7 @@ async function loadHotelDetail(id) {
               <div class="rooms-list">
                 ${hotel.rooms.map(room => renderRoomCard(room, hotel)).join('')}
               </div>
-              <h3 class="section-subtitle">리뷰 (${hotel.review_count}개)</h3>
+              <h3 class="section-subtitle" id="review-count-heading">리뷰 (${hotel.review_count}개)</h3>
               <div id="hotel-reviews-section">
                 <div class="loading-spinner" style="padding:16px 0">리뷰를 불러오는 중...</div>
               </div>
@@ -1636,12 +1635,17 @@ async function loadHotelReviews(hotelId, reviewCount) {
   try {
     const res = await api(`/hotels/${hotelId}/reviews?limit=3`);
     const reviews = res.data?.reviews || [];
+    const actualTotal = res.data?.pagination?.total ?? res.data?.total ?? reviewCount;
+
+    const headingEl = document.getElementById('review-count-heading');
+    if (headingEl) headingEl.textContent = `리뷰 (${actualTotal}개)`;
+
     if (reviews.length === 0) {
       section.innerHTML = '<p style="color:var(--text-light)">아직 리뷰가 없습니다.</p>';
       return;
     }
     section.innerHTML = reviews.map(r => renderReviewCard(r)).join('');
-    if (reviewCount > 3) {
+    if (actualTotal > 3) {
       section.innerHTML += `<button class="btn btn-outline" onclick="loadMoreReviews('${hotelId}')">리뷰 더보기</button>`;
     }
   } catch {
