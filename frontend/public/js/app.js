@@ -385,7 +385,6 @@ function renderHotelCard(hotel) {
   const placeholder = 'https://placehold.co/400x300?text=No+Image';
   const original = hotel.images && hotel.images.length > 0 ? hotel.images[0] : placeholder;
   const img = getThumbnailUrl(original);
-  const discountRate = 10;
   const categoryMap = { hotel: '호텔', motel: '모텔', pension: '펜션', guesthouse: '게스트하우스', resort: '리조트', camping: '캠핑' };
   const minPrice = hotel.min_price ? Math.floor(hotel.min_price) : 0;
   return `
