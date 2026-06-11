@@ -1825,3 +1825,61 @@ function showToast(message, type = 'info') {
   toast.className = `toast ${type} show`;
   setTimeout(() => toast.classList.remove('show'), 3500);
 }
+
+// ===== AI 챗봇 =====
+let chatHistory = [];
+
+function toggleChatbot() {
+  const popup = document.getElementById('chatbot-popup');
+  popup.classList.toggle('open');
+  if (popup.classList.contains('open')) {
+    document.getElementById('chatbot-input').focus();
+  }
+}
+
+function appendChatBubble(role, text) {
+  const messages = document.getElementById('chatbot-messages');
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble ${role}`;
+  bubble.textContent = text;
+  messages.appendChild(bubble);
+  messages.scrollTop = messages.scrollHeight;
+  return bubble;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById('chatbot-input');
+  const sendBtn = document.getElementById('chatbot-send');
+  const message = input.value.trim();
+  if (!message) return;
+
+  input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
+
+  appendChatBubble('user', message);
+  const typingBubble = appendChatBubble('bot typing', '입력 중...');
+
+  try {
+    const res = await fetch(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, history: chatHistory.slice(-10) }),
+    });
+    const data = await res.json();
+    const reply = data.reply || '답변을 받지 못했습니다.';
+
+    chatHistory.push({ role: 'user', content: message });
+    chatHistory.push({ role: 'assistant', content: reply });
+
+    typingBubble.className = 'chat-bubble bot';
+    typingBubble.textContent = reply;
+  } catch {
+    typingBubble.className = 'chat-bubble bot';
+    typingBubble.textContent = '오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+  } finally {
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
+}

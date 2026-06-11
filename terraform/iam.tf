@@ -136,10 +136,10 @@ resource "aws_iam_role_policy" "ecs_task_cognito" {
 #   policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
 # }
 #
-# resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
-#   role       = aws_iam_role.ecs_task.name
-#   policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
-# }
+resource "aws_iam_role_policy_attachment" "ecs_task_bedrock" {
+  role       = aws_iam_role.ecs_task.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonBedrockFullAccess"
+}
 
 resource "aws_iam_role_policy_attachment" "ecs_task_ses" {
   role       = aws_iam_role.ecs_task.name
