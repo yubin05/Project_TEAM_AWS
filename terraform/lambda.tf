@@ -8,14 +8,11 @@
 # ================================================================
 
 # ──────────────────────────────────────────────
-# 1. Lambda 배포용 zip 파일 생성
-#    terraform apply 실행 시 index.mjs를 자동으로 zip으로 묶음
-#    output_path에 생성된 zip을 Lambda에 업로드
+# 1. Lambda 배포용 zip 파일 참조
+#    배포 zip은 수동으로 빌드해 커밋한다 (lambda_user_migration.tf 참고)
 # ──────────────────────────────────────────────
-data "archive_file" "booking_notification" {
-  type        = "zip"
-  source_dir  = "${path.module}/../lambda/booking-notification"
-  output_path = "${path.module}/../lambda/booking-notification.zip"
+locals {
+  booking_notification_zip = "${path.module}/../lambda/booking-notification.zip"
 }
 
 # ──────────────────────────────────────────────
@@ -25,10 +22,10 @@ resource "aws_lambda_function" "booking_notification" {
   function_name = "ThreeTier-Booking-Notification"
   description   = "SQS booking-notification-queue 메시지 수신 → SES 예약 확인 이메일 발송"
 
-  # zip 파일 참조 (data.archive_file에서 생성)
-  filename         = data.archive_file.booking_notification.output_path
+  # zip 파일 참조 (수동 빌드된 정적 파일)
+  filename         = local.booking_notification_zip
   # zip 내용이 바뀔 때만 Lambda를 업데이트 (불필요한 재배포 방지)
-  source_code_hash = data.archive_file.booking_notification.output_base64sha256
+  source_code_hash = filebase64sha256(local.booking_notification_zip)
 
   # Node.js 20 런타임 — @aws-sdk/client-ses v3 기본 내장
   runtime = "nodejs20.x"

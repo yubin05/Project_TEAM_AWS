@@ -13,12 +13,11 @@
 # ============================================================
 
 
-# ── 1. Lambda 함수 코드 ZIP 패키징 ─────────────────────────────────────────────
-# terraform/ 기준 상위 폴더의 lambda/slack_notifier.js 를 ZIP으로 묶음
-data "archive_file" "slack_notifier" {
-  type        = "zip"
-  source_file = "${path.module}/../lambda/slack_notifier.js"
-  output_path = "${path.module}/../lambda/slack_notifier.zip"
+# ── 1. Lambda 배포용 zip 참조 ───────────────────────────────────────────────────
+# 배포 zip은 수동으로 빌드해 커밋한다 (lambda_user_migration.tf 참고)
+# 빌드: lambda/slack_notifier.js를 zip 루트에 위치시켜 slack_notifier.zip으로 압축
+locals {
+  slack_notifier_zip = "${path.module}/../lambda/slack_notifier.zip"
 }
 
 
@@ -31,8 +30,8 @@ resource "aws_lambda_function" "slack_notifier" {
   role             = aws_iam_role.slack_notifier_lambda.arn
   handler          = "slack_notifier.handler"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.slack_notifier.output_path
-  source_code_hash = data.archive_file.slack_notifier.output_base64sha256
+  filename         = local.slack_notifier_zip
+  source_code_hash = filebase64sha256(local.slack_notifier_zip)
   timeout          = 10   # Slack API 응답 대기 여유분
   memory_size      = 128  # 최소 사양으로 충분
 

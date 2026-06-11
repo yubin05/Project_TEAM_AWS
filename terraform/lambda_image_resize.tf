@@ -6,23 +6,18 @@
 # ================================================================
 
 # ──────────────────────────────────────────────
-# 1. Lambda 배포용 zip 생성 (node_modules 포함)
+# 1. Lambda 배포용 zip 참조 (node_modules 포함, 수동 빌드 후 커밋)
+#    배포 zip은 수동으로 빌드해 커밋한다 (lambda_user_migration.tf 참고)
 #
-#    ⚠ terraform apply 전에 아래 명령을 수동으로 먼저 실행해야 함:
-#
-#    PowerShell:
+#    빌드 시 PowerShell:
 #      cd "g:\내 드라이브\Project_TEAM_AWS\lambda\image-resize"
 #      $env:npm_config_platform = "linux"
 #      $env:npm_config_arch = "x64"
-#      npm install
-#
-#    이유: Google Drive 경로(한글 포함)에서 null_resource local-exec 실행 시
-#          tar EBADF 오류 발생 — terraform 외부에서 미리 설치하는 방식으로 우회
+#      npm install --omit=dev
+#      (폴더 내용을 image-resize.zip으로 압축)
 # ──────────────────────────────────────────────
-data "archive_file" "image_resize" {
-  type        = "zip"
-  source_dir  = "${path.module}/../lambda/image-resize"
-  output_path = "${path.module}/../lambda/image-resize.zip"
+locals {
+  image_resize_zip = "${path.module}/../lambda/image-resize.zip"
 }
 
 # ──────────────────────────────────────────────
@@ -32,9 +27,9 @@ resource "aws_lambda_function" "image_resize" {
   function_name = "ThreeTier-Image-Resize"
   description   = "S3 호텔 이미지 업로드(hotels/original/) → Sharp 리사이즈 → 썸네일 저장(hotels/thumbnails/)"
 
-  filename         = data.archive_file.image_resize.output_path
+  filename         = local.image_resize_zip
   # zip 내용이 바뀔 때만 Lambda 업데이트
-  source_code_hash = data.archive_file.image_resize.output_base64sha256
+  source_code_hash = filebase64sha256(local.image_resize_zip)
 
   runtime = "nodejs20.x"
   handler = "index.handler"

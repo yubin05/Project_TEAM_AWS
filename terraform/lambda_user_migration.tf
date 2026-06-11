@@ -6,18 +6,13 @@
 # 두 트리거를 Cognito User Pool에 연결하는 작업은 해당 User Pool이 Terraform으로
 # 관리되지 않아 AWS CLI(aws cognito-idp update-user-pool)로 별도 수행해야 함
 
-data "archive_file" "user_migration" {
-  type        = "zip"
-  source_dir  = "${path.module}/../lambda/user-migration"
-  output_path = "${path.module}/../lambda/user-migration.zip"
-  excludes    = ["package-lock.json"]
-}
-
-data "archive_file" "post_authentication" {
-  type        = "zip"
-  source_dir  = "${path.module}/../lambda/post-authentication"
-  output_path = "${path.module}/../lambda/post-authentication.zip"
-  excludes    = ["package-lock.json"]
+# 배포 zip은 terraform이 자동 생성하지 않고 수동으로 빌드해 커밋한다
+# (npm install로 받은 node_modules가 gitignore 대상이라 환경마다 결과물이 달라지는 문제 방지)
+# 빌드 방법: lambda/user-migration, lambda/post-authentication 폴더에서
+#   npm install --omit=dev 후 폴더 내용을 zip으로 압축 → 동일 이름의 .zip으로 교체
+locals {
+  user_migration_zip      = "${path.module}/../lambda/user-migration.zip"
+  post_authentication_zip = "${path.module}/../lambda/post-authentication.zip"
 }
 
 resource "aws_cloudwatch_log_group" "user_migration" {
@@ -78,8 +73,8 @@ resource "aws_lambda_function" "user_migration" {
   role             = aws_iam_role.lambda_cognito_migration.arn
   handler          = "index.handler"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.user_migration.output_path
-  source_code_hash = data.archive_file.user_migration.output_base64sha256
+  filename         = local.user_migration_zip
+  source_code_hash = filebase64sha256(local.user_migration_zip)
   timeout          = 10
 
   vpc_config {
@@ -105,8 +100,8 @@ resource "aws_lambda_function" "post_authentication" {
   role             = aws_iam_role.lambda_cognito_migration.arn
   handler          = "index.handler"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.post_authentication.output_path
-  source_code_hash = data.archive_file.post_authentication.output_base64sha256
+  filename         = local.post_authentication_zip
+  source_code_hash = filebase64sha256(local.post_authentication_zip)
   timeout          = 10
 
   vpc_config {

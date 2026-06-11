@@ -5,10 +5,9 @@
 # (DB 접근이 없어 VPC 배치 불필요. 트리거 연결은 User Pool이 Terraform 미관리라
 #  AWS CLI(aws cognito-idp update-user-pool --lambda-config ...)로 별도 수행)
 
-data "archive_file" "pre_token_generation" {
-  type        = "zip"
-  source_dir  = "${path.module}/../lambda/pre-token-generation"
-  output_path = "${path.module}/../lambda/pre-token-generation.zip"
+# 배포 zip은 수동으로 빌드해 커밋한다 (lambda_user_migration.tf 참고)
+locals {
+  pre_token_generation_zip = "${path.module}/../lambda/pre-token-generation.zip"
 }
 
 resource "aws_cloudwatch_log_group" "pre_token_generation" {
@@ -41,8 +40,8 @@ resource "aws_lambda_function" "pre_token_generation" {
   role             = aws_iam_role.lambda_pre_token_generation.arn
   handler          = "index.handler"
   runtime          = "nodejs20.x"
-  filename         = data.archive_file.pre_token_generation.output_path
-  source_code_hash = data.archive_file.pre_token_generation.output_base64sha256
+  filename         = local.pre_token_generation_zip
+  source_code_hash = filebase64sha256(local.pre_token_generation_zip)
   timeout          = 5
 
   depends_on = [aws_cloudwatch_log_group.pre_token_generation]
