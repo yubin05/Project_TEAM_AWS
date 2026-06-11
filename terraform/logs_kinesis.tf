@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 CATEGORY_MAP = [
     ('/aws/cloudtrail/',         'Audit'),
     ('/aws/dms/',                'Migration'),
+    ('dms-tasks-',               'Migration'),
     ('/threetier/vpc-flow-logs', 'Infrastructure'),
     ('/aws/rds/',                'Application'),
     ('/aws/apigateway/',         'Access'),
@@ -292,6 +293,16 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_support_to_firehose" {
 resource "aws_cloudwatch_log_subscription_filter" "dms_task_to_firehose" {
   name            = "dms-task-to-firehose"
   log_group_name  = aws_cloudwatch_log_group.dms_task.name
+  filter_pattern  = ""
+  destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
+  role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
+}
+
+# AWS Aurora → Azure MySQL CDC 복제 태스크 로그 (dms-tasks-dms-truck 로그 그룹)
+resource "aws_cloudwatch_log_subscription_filter" "dms_cdc_to_firehose" {
+  name            = "dms-cdc-to-firehose"
+  log_group_name  = "dms-tasks-dms-truck"
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn

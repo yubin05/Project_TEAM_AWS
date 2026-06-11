@@ -16,11 +16,14 @@ resource "aws_cloudtrail" "main" {
   is_multi_region_trail         = true
   enable_log_file_validation    = true
 
-  # WriteOnly: 콘솔/API로 뭔가를 변경한 이벤트만 수집
-  # Read 이벤트(목록 조회 등)는 너무 많아서 제외
-  event_selector {
-    read_write_type           = "WriteOnly"
-    include_management_events = true
+  # WriteOnly Management 이벤트만 수집 (advanced_event_selector 사용)
+  # basic event_selector와 혼용 불가 — advanced로 통일
+  advanced_event_selector {
+    name = "Management write events only"
+    field_selector {
+      field  = "eventCategory"
+      equals = ["Management"]
+    }
   }
 
   depends_on = [aws_s3_bucket_policy.logs]
