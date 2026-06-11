@@ -66,3 +66,9 @@ output "vpn_azure_tunnel1_address" {
   value       = local.azure_vpn_enabled ? aws_vpn_connection.azure[0].tunnel1_address : "VPN 미설정 (azure_vpn_gateway_ip/vpn_shared_key 입력 필요)"
   sensitive   = true
 }
+
+output "vpn_azure_tunnel2_address" {
+  description = "AWS 터널2 퍼블릭 IP → terraform-azure/terraform.tfvars aws_vpn_tunnel2_ip에 입력"
+  value       = local.azure_vpn_enabled ? aws_vpn_connection.azure[0].tunnel2_address : "VPN 미설정 (azure_vpn_gateway_ip/vpn_shared_key 입력 필요)"
+  sensitive   = true
+}

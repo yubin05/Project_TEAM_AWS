@@ -75,6 +75,12 @@ variable "aws_vpn_tunnel_ip" {
   default     = ""
 }
 
+variable "aws_vpn_tunnel2_ip" {
+  description = "AWS VPN Connection 터널2 퍼블릭 IP (2차 AWS apply 후 출력값 입력). 입력 전까지 Azure Connection 생성 skip"
+  type        = string
+  default     = ""
+}
+
 variable "vpn_shared_key" {
   description = "IPsec 사전 공유 키 (AWS terraform.tfvars와 동일 값 사용)"
   type        = string

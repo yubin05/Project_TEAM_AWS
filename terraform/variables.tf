@@ -46,7 +46,7 @@ variable "github_repo_name" {
 variable "amplify_force_deploy" {
   description = "강제 배포 시 true (AMPLIFY_DIFF_DEPLOY 비활성화)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "db_password" {
@@ -81,7 +81,7 @@ variable "enable_rds_log_groups" {
 variable "enable_migration" {
   description = "MySQL EC2 + DMS 리소스 활성화. 최초 배포 시 true, 마이그레이션 완료 후 false로 바꾸고 apply하면 자동 삭제"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "slack_webhook_url" {
@@ -94,7 +94,7 @@ variable "slack_webhook_url" {
 variable "alert_email" {
   description = "CloudWatch 알람 수신 이메일 (SNS 이메일 구독용)"
   type        = string
-  default     = "your-email@example.com"
+  default     = "shw504@gmail.com"
 }
 
 variable "ses_sender_email" {
@@ -124,13 +124,14 @@ variable "opensearch_allowed_ips" {
 variable "enable_opensearch_tunnel" {
   description = "OpenSearch Dashboards 접근용 SSM 터널 EC2 생성 여부. 대시보드 확인이 필요할 때만 true로 설정 (평소 false로 비용 절감)"
   type        = bool
-  default     = false
+  default     = true
 }
 
 # ── AWS ↔ Azure Site-to-Site VPN ─────────────────────────────────────────────
 variable "azure_vpn_gateway_ip" {
   description = "Azure VPN Gateway 퍼블릭 IP (1차 azure apply 후 출력값 입력). 입력 전까지 AWS VPN 리소스 생성 skip"
   type        = string
+  default     = "20.200.236.211"
 }
 
 variable "vpn_shared_key" {
@@ -143,6 +144,7 @@ variable "vpn_shared_key" {
 variable "azure_mysql_host" {
   description = "Azure MySQL Flexible Server 프라이빗 IP (VPN 경유 CDC 타깃). Azure 포털 → MySQL 서버 → 연결 문자열에서 확인"
   type        = string
+  default     = "10.2.3.4"
 }
 
 variable "azure_mysql_user" {

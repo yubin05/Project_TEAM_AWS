@@ -76,5 +76,41 @@ resource "azurerm_virtual_network_gateway_connection" "to_aws" {
   tags = { Name = "${var.project_prefix}-conn-to-aws" }
 }
 
+# AWS 터널2 측 표현 (이중화용 — AWS 터널2 IP 입력 후 생성)
+resource "azurerm_local_network_gateway" "aws_tunnel2" {
+  count               = var.aws_vpn_tunnel2_ip != "" ? 1 : 0
+  name                = "${var.project_prefix}-aws-lgw-2"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  gateway_address     = var.aws_vpn_tunnel2_ip
+  address_space       = ["10.1.0.0/16"]
+  tags                = { Name = "${var.project_prefix}-aws-lgw-2" }
+}
+
+resource "azurerm_virtual_network_gateway_connection" "to_aws_tunnel2" {
+  count                      = var.aws_vpn_tunnel2_ip != "" ? 1 : 0
+  name                       = "${var.project_prefix}-conn-to-aws-2"
+  resource_group_name        = azurerm_resource_group.main.name
+  location                   = azurerm_resource_group.main.location
+  type                       = "IPsec"
+  virtual_network_gateway_id = azurerm_virtual_network_gateway.main.id
+  local_network_gateway_id   = azurerm_local_network_gateway.aws_tunnel2[0].id
+  shared_key                 = var.vpn_shared_key
+
+  # AWS IKEv2 호환 암호화 설정 (vpn.tf tunnel 설정과 일치)
+  ipsec_policy {
+    ike_encryption   = "AES256"
+    ike_integrity    = "SHA256"
+    dh_group         = "DHGroup14"
+    ipsec_encryption = "AES256"
+    ipsec_integrity  = "SHA256"
+    pfs_group        = "PFS2048"
+    sa_lifetime      = 27000
+    sa_datasize      = 102400000
+  }
+
+  tags = { Name = "${var.project_prefix}-conn-to-aws-2" }
+}
+
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
