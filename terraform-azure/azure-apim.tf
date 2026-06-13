@@ -47,6 +47,7 @@ resource "azurerm_api_management_api_policy" "main" {
         <cors allow-credentials="true">
           <allowed-origins>
             <origin>https://calm-plant-04a6be700.7.azurestaticapps.net</origin>
+            <origin>https://www.vundle34.cloud</origin>
             <origin>http://localhost:3000</origin>
           </allowed-origins>
           <allowed-methods preflight-result-max-age="300">

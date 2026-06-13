@@ -9,3 +9,12 @@ resource "azurerm_static_web_app" "frontend" {
   sku_tier = "Free"
   sku_size = "Free"
 }
+
+# www.vundle34.cloud DR failover 대상 (Route53 CNAME secondary).
+# CNAME-delegation 검증 방식이라 적용 시점에 Route53의 www CNAME이
+# 이 Static Web App의 default_host_name을 가리키고 있어야 검증/인증서 발급이 된다.
+resource "azurerm_static_web_app_custom_domain" "frontend" {
+  static_web_app_id = azurerm_static_web_app.frontend.id
+  domain_name       = "www.vundle34.cloud"
+  validation_type   = "cname-delegation"
+}

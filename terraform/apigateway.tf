@@ -4,7 +4,12 @@ resource "aws_apigatewayv2_api" "main" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = ["*"]
+    allow_origins = [
+      "https://www.vundle34.cloud",
+      "https://main.d21lqy32bq1s4y.amplifyapp.com",
+      "https://calm-plant-04a6be700.7.azurestaticapps.net",
+      "http://localhost:3000",
+    ]
     allow_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"]
     allow_headers = ["Content-Type", "Authorization"]
     max_age       = 300
