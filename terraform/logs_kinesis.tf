@@ -36,9 +36,9 @@ CATEGORY_MAP = [
     ('/threetier/vpc-flow-logs', 'Infrastructure'),
     ('/aws/rds/',                'Application'),
     ('/aws/apigateway/',         'Access'),
+    ('aws-waf-logs',             'Access'),
     ('/aws/lambda/',             'Application'),
     ('/ecs/',                    'Application'),
-    ('aws-waf-logs',             'Application'),
 ]
 
 LEVEL_RE = re.compile(r'\b(FATAL|CRITICAL|ERROR|WARN(?:ING)?|INFO|DEBUG|TRACE)\b', re.IGNORECASE)
@@ -51,6 +51,9 @@ def get_category(log_group):
     return 'Application'
 
 def get_service(log_group):
+    if '/aws/rds/cluster/' in log_group:
+        parts = log_group.split('/')
+        return parts[4] if len(parts) > 4 else parts[-1]
     return log_group.rstrip('/').split('/')[-1]
 
 def get_level(message):
@@ -65,11 +68,20 @@ def lambda_handler(event, context):
     for record in event['records']:
         raw = base64.b64decode(record['data'])
 
-        # ALB Lambda puts pre-formatted JSON directly to Firehose (not gzip)
         try:
             log_data = json.loads(gzip.decompress(raw))
         except (gzip.BadGzipFile, OSError):
-            output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': record['data']})
+            # gzip 해제 실패 시 category/service/level 필드를 추가해 분류되지 않는 로그 방지
+            try:
+                raw_doc = json.loads(raw)
+                if isinstance(raw_doc, dict) and 'category' not in raw_doc:
+                    raw_doc['category'] = 'Application'
+                    raw_doc.setdefault('service', 'unknown')
+                    raw_doc.setdefault('level', 'INFO')
+                encoded = base64.b64encode((json.dumps(raw_doc) + '\n').encode()).decode()
+                output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': encoded})
+            except Exception:
+                output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': record['data']})
             continue
 
         if log_data.get('messageType') == 'CONTROL_MESSAGE':
