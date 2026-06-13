@@ -121,12 +121,3 @@ resource "aws_s3_bucket_notification" "alb_logs_to_lambda" {
     filter_prefix       = "alb-access-logs/"
   }
 }
-
-
-# ── 4. CloudWatch 로그 그룹 ───────────────────────────────────
-
-resource "aws_cloudwatch_log_group" "alb_log_processor" {
-  name              = "/aws/lambda/threetier-alb-log-processor"
-  retention_in_days = 14
-  tags              = { Name = "alb-log-processor-log-group", Project = "threetier" }
-}
