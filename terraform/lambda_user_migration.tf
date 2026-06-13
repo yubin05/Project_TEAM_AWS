@@ -15,16 +15,6 @@ locals {
   post_authentication_zip = "${path.module}/../lambda/post-authentication.zip"
 }
 
-resource "aws_cloudwatch_log_group" "user_migration" {
-  name              = "/aws/lambda/ThreeTier-User-Migration"
-  retention_in_days = 30
-}
-
-resource "aws_cloudwatch_log_group" "post_authentication" {
-  name              = "/aws/lambda/ThreeTier-Post-Authentication"
-  retention_in_days = 30
-}
-
 # ── IAM 역할 (두 Lambda 공용: VPC ENI 관리 + CloudWatch Logs + Secrets 조회) ───
 resource "aws_iam_role" "lambda_cognito_migration" {
   name = "ThreeTier-Lambda-CognitoMigration-Role"

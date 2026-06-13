@@ -1,7 +1,7 @@
 # ============================================================
 # 내용: 로그 그룹 전체 통합
-#   - ECS 5개 / CloudTrail / Lambda 4개 / API Gateway / WAF
-#   - VPC Flow Logs / Slack Notifier
+#   - ECS 5개 / CloudTrail / Lambda 8개 / API Gateway / WAF
+#   - VPC Flow Logs / Slack Notifier / DMS / RDS 3개
 # ============================================================
 
 # ── ECS 서비스 로그 그룹 ─────────────────────────────────────
@@ -141,4 +141,33 @@ resource "aws_cloudwatch_log_group" "rds_slowquery" {
   name              = "/aws/rds/cluster/threetier-aurora-cluster/slowquery"
   retention_in_days = 30
   tags              = { Name = "rds-slowquery-log-group", Project = "threetier" }
+}
+
+# ── API Gateway ──────────────────────────────────────────────
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/apigateway/threetier-http-api"
+  retention_in_days = 30
+  tags              = { Name = "ThreeTier-APIGW-LogGroup" }
+}
+
+# ── Lambda (Cognito / ALB) ────────────────────────────────────
+resource "aws_cloudwatch_log_group" "pre_token_generation" {
+  name              = "/aws/lambda/ThreeTier-Pre-Token-Generation"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_log_group" "user_migration" {
+  name              = "/aws/lambda/ThreeTier-User-Migration"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_log_group" "post_authentication" {
+  name              = "/aws/lambda/ThreeTier-Post-Authentication"
+  retention_in_days = 30
+}
+
+resource "aws_cloudwatch_log_group" "alb_log_processor" {
+  name              = "/aws/lambda/threetier-alb-log-processor"
+  retention_in_days = 14
+  tags              = { Name = "alb-log-processor-log-group", Project = "threetier" }
 }

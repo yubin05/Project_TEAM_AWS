@@ -10,11 +10,6 @@ locals {
   pre_token_generation_zip = "${path.module}/../lambda/pre-token-generation.zip"
 }
 
-resource "aws_cloudwatch_log_group" "pre_token_generation" {
-  name              = "/aws/lambda/ThreeTier-Pre-Token-Generation"
-  retention_in_days = 30
-}
-
 resource "aws_iam_role" "lambda_pre_token_generation" {
   name = "ThreeTier-Lambda-PreTokenGeneration-Role"
 
