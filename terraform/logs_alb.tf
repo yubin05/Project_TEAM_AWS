@@ -10,51 +10,7 @@
 # ============================================================
 
 
-# ── 1. IAM Role: ALB 로그 처리 Lambda ────────────────────────
-
-resource "aws_iam_role" "lambda_alb_log_processor" {
-  name = "ThreeTier-Lambda-ALBLogProcessor-Role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-
-  tags = { Name = "ThreeTier-Lambda-ALBLogProcessor-Role", Project = "threetier" }
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_alb_basic" {
-  role       = aws_iam_role.lambda_alb_log_processor.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_role_policy" "lambda_alb_log_processor" {
-  name = "ThreeTier-Lambda-ALBLogProcessor-Policy"
-  role = aws_iam_role.lambda_alb_log_processor.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect   = "Allow"
-        Action   = ["s3:GetObject"]
-        Resource = "${aws_s3_bucket.logs.arn}/alb-access-logs/*"
-      },
-      {
-        Effect   = "Allow"
-        Action   = ["firehose:PutRecordBatch"]
-        Resource = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
-      }
-    ]
-  })
-}
-
-
-# ── 2. Lambda 함수: ALB 로그 파싱 → Firehose ─────────────────
+# ── 1. Lambda 함수: ALB 로그 파싱 → Firehose ─────────────────
 
 data "archive_file" "alb_log_processor" {
   type        = "zip"
@@ -142,7 +98,7 @@ resource "aws_lambda_function" "alb_log_processor" {
 }
 
 
-# ── 3. S3 → Lambda 호출 권한 ─────────────────────────────────
+# ── 2. S3 → Lambda 호출 권한 ─────────────────────────────────
 
 resource "aws_lambda_permission" "allow_s3_alb_logs" {
   statement_id  = "AllowS3InvokeALBLogProcessor"
@@ -153,7 +109,7 @@ resource "aws_lambda_permission" "allow_s3_alb_logs" {
 }
 
 
-# ── 4. S3 이벤트 알림 → Lambda 트리거 ────────────────────────
+# ── 3. S3 이벤트 알림 → Lambda 트리거 ────────────────────────
 
 resource "aws_s3_bucket_notification" "alb_logs_to_lambda" {
   bucket     = aws_s3_bucket.logs.id
@@ -167,7 +123,7 @@ resource "aws_s3_bucket_notification" "alb_logs_to_lambda" {
 }
 
 
-# ── 5. CloudWatch 로그 그룹 ───────────────────────────────────
+# ── 4. CloudWatch 로그 그룹 ───────────────────────────────────
 
 resource "aws_cloudwatch_log_group" "alb_log_processor" {
   name              = "/aws/lambda/threetier-alb-log-processor"
