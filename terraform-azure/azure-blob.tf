@@ -9,6 +9,17 @@ resource "azurerm_storage_account" "uploads" {
 
   account_tier             = "Standard"
   account_replication_type = "LRS"
+
+  # S3 aws_s3_bucket_cors_configuration.uploads 에 대응 — 프론트엔드에서 SAS URL로 직접 PUT 업로드 허용
+  blob_properties {
+    cors_rule {
+      allowed_origins    = ["*"]
+      allowed_methods    = ["PUT", "GET"]
+      allowed_headers    = ["*"]
+      exposed_headers    = ["*"]
+      max_age_in_seconds = 3600
+    }
+  }
 }
 
 # AWS S3 uploads 버킷의 hotels/ 경로(공개 읽기)에 대응

@@ -1383,7 +1383,11 @@ async function handleAdminHotelSubmit(e) {
     if (hotelId && selectedFiles.length > 0) {
       const imageUrls = await Promise.all(selectedFiles.map(async file => {
         const presignRes = await api(`/hotels/${hotelId}/image-upload-url?filename=${encodeURIComponent(file.name)}&contentType=${encodeURIComponent(file.type)}`, { method: 'POST' });
-        await fetch(presignRes.data.uploadUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+        const isAzureBlob = presignRes.data.uploadUrl.includes('.blob.core.windows.net');
+        const uploadHeaders = isAzureBlob
+          ? { 'Content-Type': file.type, 'x-ms-blob-type': 'BlockBlob' }
+          : { 'Content-Type': file.type };
+        await fetch(presignRes.data.uploadUrl, { method: 'PUT', headers: uploadHeaders, body: file });
         return presignRes.data.imageUrl;
       }));
 
