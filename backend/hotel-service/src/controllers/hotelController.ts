@@ -302,19 +302,21 @@ export async function getMyHotels(req: Request, res: Response): Promise<void> {
   try {
     const userId = req.user!.userId;
     const role   = req.user!.role;
+    const includeInactive = req.query.include_inactive === 'true';
+
+    const whereClauses: string[] = [];
+    const params: string[] = [];
+    if (role !== 'admin') { whereClauses.push('h.host_id = ?'); params.push(userId); }
+    if (!includeInactive) whereClauses.push('h.is_active = 1');
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const [rows] = await pool.query<RowDataPacket[]>(
-      role === 'admin'
-        ? `SELECT h.*, COUNT(DISTINCT r.id) as room_count,
-             MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
-           FROM hotels h LEFT JOIN rooms r ON h.id = r.hotel_id
-           GROUP BY h.id ORDER BY h.created_at DESC`
-        : `SELECT h.*, COUNT(DISTINCT r.id) as room_count,
-             MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
-           FROM hotels h LEFT JOIN rooms r ON h.id = r.hotel_id
-           WHERE h.host_id = ?
-           GROUP BY h.id ORDER BY h.created_at DESC`,
-      role === 'admin' ? [] : [userId]
+      `SELECT h.*, COUNT(DISTINCT r.id) as room_count,
+         MIN(r.price_per_night * (1 - r.discount_rate / 100)) as min_price
+       FROM hotels h LEFT JOIN rooms r ON h.id = r.hotel_id
+       ${whereSql}
+       GROUP BY h.id ORDER BY h.created_at DESC`,
+      params
     );
 
     const hotels = (rows as any[]).map(h => ({

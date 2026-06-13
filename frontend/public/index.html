@@ -330,6 +330,10 @@
 
         <!-- 내 숙소 탭 -->
         <div id="admin-tab-hotels" class="admin-tab-content active">
+          <label style="display:flex;align-items:center;gap:6px;margin-bottom:12px;font-size:0.9rem;color:var(--text-light);cursor:pointer">
+            <input type="checkbox" id="admin-show-inactive-hotels" onchange="loadAdminHotels()">
+            비활성화된 숙소 포함 보기
+          </label>
           <div id="admin-hotels-list"></div>
         </div>
 
@@ -768,7 +772,6 @@
   <div class="toast" id="toast"></div>
 
 
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <script src="/js/config.js"></script>
   <script src="/js/app.js"></script>
 

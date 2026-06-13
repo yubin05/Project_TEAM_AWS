@@ -58,6 +58,7 @@ resource "aws_security_group" "backend" {
     cidr_blocks = ["10.1.2.0/24"]
   }
 
+  # TODO: 로컬 개발 환경(ElasticMQ) 미사용 - 이 규칙 제거 필요
   ingress {
     description = "ElasticMQ on hotel EC2 port 9324 for booking and review"
     from_port   = 9324
