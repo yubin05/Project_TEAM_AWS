@@ -47,6 +47,8 @@ resource "aws_lambda_function" "image_resize" {
       THUMBNAIL_HEIGHT = "300"
       ORIGINAL_PREFIX  = "hotels/original/"
       THUMBNAIL_PREFIX = "hotels/thumbnails/"
+      # 원본을 Azure Blob hotels/original/ 에도 동기화하기 위한 Secrets Manager 참조
+      AZURE_BLOB_CONNECTION_STRING_SECRET_ARN = data.aws_secretsmanager_secret.azure_blob_connection_string.arn
     }
   }
 

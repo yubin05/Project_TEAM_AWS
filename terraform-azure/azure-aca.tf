@@ -83,6 +83,11 @@ resource "azurerm_container_app" "hotel_service" {
     }
   }
 
+  secret {
+    name  = "azure-storage-key"
+    value = azurerm_storage_account.uploads.primary_access_key
+  }
+
   template {
     min_replicas = var.aca_min_replicas
     max_replicas = var.aca_max_replicas
@@ -92,6 +97,23 @@ resource "azurerm_container_app" "hotel_service" {
       image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
       cpu    = 0.25
       memory = "0.5Gi"
+
+      # AWS 장애 시 Azure Active 상태에서 호텔 이미지 업로드를 Azure Blob SAS로 처리하기 위한 설정
+      # ignore_changes = [template] 때문에 기존 Container App에는 적용되지 않으며,
+      # 대신 .github/workflows/deploy-backend.yml의 hotel-service 배포 단계에서
+      # 매 배포마다 az containerapp update --set-env-vars로 설정함 (여기서는 초기 생성 시 기본값)
+      env {
+        name  = "APP_MODE"
+        value = "azure"
+      }
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT"
+        value = azurerm_storage_account.uploads.name
+      }
+      env {
+        name        = "AZURE_STORAGE_KEY"
+        secret_name = "azure-storage-key"
+      }
     }
 
     http_scale_rule {

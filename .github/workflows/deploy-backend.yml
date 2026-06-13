@@ -51,3 +51,17 @@ jobs:
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           containerAppEnvironment: ${{ env.ACA_ENVIRONMENT }}
           imageToDeploy: ${{ env.ACR_LOGIN_SERVER }}/${{ matrix.service }}:${{ github.sha }}
+
+      # hotel-service: AWS 장애 시 Azure Blob SAS 업로드를 위한 환경변수
+      # (terraform-azure/azure-aca.tf의 env는 ignore_changes=[template]로 인해
+      #  이 워크플로우가 배포한 revision에는 적용되지 않으므로 여기서 직접 설정)
+      - name: hotel-service 환경변수 설정 (Azure Blob)
+        if: matrix.service == 'hotel-service'
+        run: |
+          az containerapp update \
+            --name hotel-service \
+            --resource-group ${{ env.RESOURCE_GROUP }} \
+            --set-env-vars \
+              APP_MODE=azure \
+              AZURE_STORAGE_ACCOUNT=threetierdruploadsmain \
+              AZURE_STORAGE_KEY=secretref:azure-storage-key

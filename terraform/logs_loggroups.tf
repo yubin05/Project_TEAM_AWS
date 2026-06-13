@@ -62,6 +62,16 @@ resource "aws_cloudwatch_log_group" "lambda_image_resize" {
   }
 }
 
+resource "aws_cloudwatch_log_group" "lambda_s3_blob_sync" {
+  name              = "/aws/lambda/ThreeTier-S3-Blob-Sync"
+  retention_in_days = 30
+
+  tags = {
+    Name      = "ThreeTier-S3-Blob-Sync-Logs"
+    ManagedBy = "terraform"
+  }
+}
+
 resource "aws_cloudwatch_log_group" "lambda_cognito_post_confirm" {
   name              = "/aws/lambda/cognito-post-confirm"
   retention_in_days = 30

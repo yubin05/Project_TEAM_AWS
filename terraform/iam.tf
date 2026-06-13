@@ -648,11 +648,21 @@ data "aws_iam_policy_document" "lambda_image_resize_policy" {
       "${aws_s3_bucket.uploads.arn}/hotels/thumbnails/*"
     ]
   }
+
+  # ④ 원본을 Azure Blob에도 동기화하기 위한 Connection String 조회
+  statement {
+    sid     = "AllowGetAzureBlobSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      data.aws_secretsmanager_secret.azure_blob_connection_string.arn
+    ]
+  }
 }
 
 resource "aws_iam_policy" "lambda_image_resize_policy" {
   name        = "ThreeTier-Lambda-ImageResize-Policy"
-  description = "image-resize Lambda 최소 권한 (S3 원본 읽기 + 썸네일 쓰기 + CloudWatch)"
+  description = "image-resize Lambda 최소 권한 (S3 원본 읽기 + 썸네일 쓰기 + Azure Blob 동기화용 시크릿 읽기 + CloudWatch)"
   policy      = data.aws_iam_policy_document.lambda_image_resize_policy.json
   tags = {
     Name      = "ThreeTier-Lambda-ImageResize-Policy"
@@ -663,4 +673,79 @@ resource "aws_iam_policy" "lambda_image_resize_policy" {
 resource "aws_iam_role_policy_attachment" "lambda_image_resize" {
   role       = aws_iam_role.lambda_image_resize_role.name
   policy_arn = aws_iam_policy.lambda_image_resize_policy.arn
+}
+
+# ── s3-blob-sync Lambda 역할 ───────────────────────────────────────────────
+# 관련 파일: lambda_s3_blob_sync.tf, s3.tf
+
+data "aws_iam_policy_document" "lambda_s3_blob_sync_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_s3_blob_sync_role" {
+  name               = "ThreeTier-Lambda-S3BlobSync-Role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_s3_blob_sync_assume.json
+  tags = {
+    Name      = "ThreeTier-Lambda-S3BlobSync-Role"
+    ManagedBy = "terraform"
+  }
+}
+
+data "aws_iam_policy_document" "lambda_s3_blob_sync_policy" {
+  # ① CloudWatch Logs — 실행 로그 기록
+  statement {
+    sid    = "AllowCloudWatchLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = [
+      "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/ThreeTier-S3-Blob-Sync:*"
+    ]
+  }
+
+  # ② S3 객체 읽기 (hotels/, uploads/ 경로만 허용)
+  statement {
+    sid     = "AllowS3GetObject"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.uploads.arn}/hotels/*",
+      "${aws_s3_bucket.uploads.arn}/uploads/*"
+    ]
+  }
+
+  # ③ Azure Blob Connection String 조회
+  statement {
+    sid     = "AllowGetAzureBlobSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      data.aws_secretsmanager_secret.azure_blob_connection_string.arn
+    ]
+  }
+}
+
+resource "aws_iam_policy" "lambda_s3_blob_sync_policy" {
+  name        = "ThreeTier-Lambda-S3BlobSync-Policy"
+  description = "s3-blob-sync Lambda 최소 권한 (S3 읽기 + Azure Blob Secret 조회 + CloudWatch)"
+  policy      = data.aws_iam_policy_document.lambda_s3_blob_sync_policy.json
+  tags = {
+    Name      = "ThreeTier-Lambda-S3BlobSync-Policy"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_s3_blob_sync" {
+  role       = aws_iam_role.lambda_s3_blob_sync_role.name
+  policy_arn = aws_iam_policy.lambda_s3_blob_sync_policy.arn
 }
