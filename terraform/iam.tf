@@ -791,3 +791,58 @@ resource "aws_iam_role_policy_attachment" "lambda_s3_blob_sync" {
   role       = aws_iam_role.lambda_s3_blob_sync_role.name
   policy_arn = aws_iam_policy.lambda_s3_blob_sync_policy.arn
 }
+
+# ── Pre Token Generation Lambda (lambda_pre_token_generation.tf) ─────────────
+resource "aws_iam_role" "lambda_pre_token_generation" {
+  name = "ThreeTier-Lambda-PreTokenGeneration-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Lambda-PreTokenGeneration-Role" }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_pre_token_generation_logs" {
+  role       = aws_iam_role.lambda_pre_token_generation.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# ── User Migration / Post Authentication Lambda 공용 역할 (lambda_user_migration.tf) ──
+# VPC ENI 관리 + CloudWatch Logs + Secrets 조회
+resource "aws_iam_role" "lambda_cognito_migration" {
+  name = "ThreeTier-Lambda-CognitoMigration-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Lambda-CognitoMigration-Role" }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_cognito_migration_vpc" {
+  role       = aws_iam_role.lambda_cognito_migration.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "lambda_cognito_migration_secrets" {
+  role = aws_iam_role.lambda_cognito_migration.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = data.aws_secretsmanager_secret.auth.arn
+    }]
+  })
+}
