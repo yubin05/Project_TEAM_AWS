@@ -16,8 +16,17 @@ document.addEventListener('DOMContentLoaded', () => {
   setDefaultDates();
   loadFeaturedHotels();
   initStarRating();
+  showCloudProvider();
   navigateTo('home');
 });
+
+function showCloudProvider() {
+  const logoText = document.querySelector('.logo-text');
+  if (logoText) logoText.textContent += ` - ${CLOUD_PROVIDER}`;
+
+  const footerLogo = document.querySelector('.footer-logo');
+  if (footerLogo) footerLogo.textContent += ` - ${CLOUD_PROVIDER}`;
+}
 
 function loadAuth() {
   const token = localStorage.getItem('token');

@@ -158,3 +158,22 @@ variable "azure_mysql_password" {
   type        = string
   sensitive   = true
 }
+
+# ── Route53 DR Failover ────────────────────────────────────────────────────
+variable "dr_root_domain" {
+  description = "Route53로 위임할 루트 도메인. Gabia에서 이 도메인 전체의 NS를 Route53으로 위임"
+  type        = string
+  default     = "vundle34.cloud"
+}
+
+variable "dr_subdomain" {
+  description = "Failover 라우팅을 적용할 서브도메인 prefix (www -> www.vundle34.cloud)"
+  type        = string
+  default     = "www"
+}
+
+variable "azure_frontend_endpoint" {
+  description = "Azure Static Web App 기본 도메인 (failover secondary 타깃)"
+  type        = string
+  default     = "calm-plant-04a6be700.7.azurestaticapps.net"
+}

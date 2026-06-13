@@ -42,3 +42,13 @@ output "ecr_review_url" {
   description = "ECR review-service URL"
   value       = aws_ecr_repository.review.repository_url
 }
+
+output "dr_zone_name_servers" {
+  description = "Route53 DR hosted zone NS — Gabia에서 var.dr_root_domain(vundle34.cloud) 도메인 전체 네임서버로 위임"
+  value       = aws_route53_zone.dr.name_servers
+}
+
+output "amplify_default_domain" {
+  description = "Amplify 기본 도메인 (failover primary 후보)"
+  value       = aws_amplify_app.frontend.default_domain
+}
