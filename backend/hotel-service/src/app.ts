@@ -20,7 +20,9 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'hotel-service', mode: config.mode });
 });
 
-startSQSConsumer().catch(err => logger.error('SQS consumer failed', { err }));
+if (config.mode !== 'azure') {
+  startSQSConsumer().catch(err => logger.error('SQS consumer failed', { err }));
+}
 app.listen(config.port, () => {
   logger.info('hotel-service started', { port: config.port, mode: config.mode });
 });
