@@ -1,7 +1,7 @@
 # ============================================================
 # logs_cloudtrail.tf — CloudTrail 감사 로그
 #   "누가 언제 AWS에서 뭘 했나" 기록
-#   WriteOnly 이벤트만 수집 (콘솔 변경, 리소스 생성/삭제 등)
+#   Management 이벤트 전체 수집 (Read + Write, Data Events 제외)
 #   → S3 장기 보관 + CloudWatch → Firehose → OpenSearch Audit 카테고리
 # ============================================================
 
@@ -16,10 +16,10 @@ resource "aws_cloudtrail" "main" {
   is_multi_region_trail         = true
   enable_log_file_validation    = true
 
-  # WriteOnly Management 이벤트만 수집 (advanced_event_selector 사용)
+  # Management 이벤트 전체 수집 (Read + Write, Data Events 제외)
   # basic event_selector와 혼용 불가 — advanced로 통일
   advanced_event_selector {
-    name = "Management write events only"
+    name = "Management events only"
     field_selector {
       field  = "eventCategory"
       equals = ["Management"]
