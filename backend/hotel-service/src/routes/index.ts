@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken, requireRole, requireInternal } from '../middleware/auth';
 import * as hotel     from '../controllers/hotelController';
-import * as video     from '../controllers/videoController';
 import * as wishlist  from '../controllers/wishlistController';
 import * as recommend from '../controllers/recommendController';
 import * as image    from '../controllers/imageController';
@@ -28,12 +27,6 @@ router.post('/hotels/:hotelId/rooms',
 // ── 이미지 ────────────────────────────────────────────────────────────────────
 router.post('/hotels/:id/image-upload-url',
   authenticateToken, requireRole('host','admin'), image.getImageUploadUrl);
-
-// ── 영상 ──────────────────────────────────────────────────────────────────────
-router.post('/hotels/:id/video-upload-url',
-  authenticateToken, requireRole('host','admin'), video.getVideoUploadUrl);
-router.post('/hotels/:id/video-url', video.updateVideoUrl);
-router.get('/hotels/:id/video-status', video.getVideoStatus);
 
 // ── 위시리스트 ────────────────────────────────────────────────────────────────
 router.post('/wishlist/:hotelId', authenticateToken, wishlist.toggleWishlist);

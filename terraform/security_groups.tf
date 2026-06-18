@@ -58,6 +58,7 @@ resource "aws_security_group" "backend" {
     cidr_blocks = ["10.1.2.0/24"]
   }
 
+  # TODO: 로컬 개발 환경(ElasticMQ) 미사용 - 이 규칙 제거 필요
   ingress {
     description = "ElasticMQ on hotel EC2 port 9324 for booking and review"
     from_port   = 9324
@@ -366,6 +367,28 @@ resource "aws_security_group" "ssm_tunnel" {
   description = "SSM Session Manager tunnel EC2 - no inbound ports"
   vpc_id      = aws_vpc.main.id
   tags        = { Name = "ThreeTier-SSMTunnel-SG" }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# ── VPC Endpoint 보안 그룹 (vpc_endpoints.tf) ─────────────────────────────────
+resource "aws_security_group" "vpc_endpoints" {
+  name        = "ThreeTier-VPCEndpoints-SG"
+  description = "VPC Endpoints Security Group"
+  vpc_id      = aws_vpc.main.id
+  tags        = { Name = "ThreeTier-VPCEndpoints-SG" }
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.1.0.0/16"]
+  }
 
   egress {
     from_port   = 0

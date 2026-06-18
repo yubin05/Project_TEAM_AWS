@@ -10,31 +10,6 @@ locals {
   pre_token_generation_zip = "${path.module}/../lambda/pre-token-generation.zip"
 }
 
-resource "aws_cloudwatch_log_group" "pre_token_generation" {
-  name              = "/aws/lambda/ThreeTier-Pre-Token-Generation"
-  retention_in_days = 30
-}
-
-resource "aws_iam_role" "lambda_pre_token_generation" {
-  name = "ThreeTier-Lambda-PreTokenGeneration-Role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-
-  tags = { Name = "ThreeTier-Lambda-PreTokenGeneration-Role" }
-}
-
-resource "aws_iam_role_policy_attachment" "lambda_pre_token_generation_logs" {
-  role       = aws_iam_role.lambda_pre_token_generation.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
 resource "aws_lambda_function" "pre_token_generation" {
   function_name    = "ThreeTier-Pre-Token-Generation"
   role             = aws_iam_role.lambda_pre_token_generation.arn

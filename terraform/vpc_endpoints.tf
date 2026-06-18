@@ -1,25 +1,3 @@
-# ── VPC Endpoint 보안 그룹 ────────────────────────────────────────────────────
-resource "aws_security_group" "vpc_endpoints" {
-  name        = "ThreeTier-VPCEndpoints-SG"
-  description = "VPC Endpoints Security Group"
-  vpc_id      = aws_vpc.main.id
-  tags        = { Name = "ThreeTier-VPCEndpoints-SG" }
-
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["10.1.0.0/16"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
 # ── Gateway Endpoint (무료) ───────────────────────────────────────────────────
 resource "aws_vpc_endpoint" "s3" {
   vpc_id            = aws_vpc.main.id

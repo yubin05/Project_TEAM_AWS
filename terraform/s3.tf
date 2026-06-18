@@ -48,9 +48,15 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
   }
 }
 
-# ── 호텔 이미지 업로드 → Lambda 썸네일 리사이즈 트리거 ──────────────────────
-# hotels/original/ prefix에 파일이 올라올 때만 Lambda 호출
+# ── 호텔 이미지 업로드 → Lambda 썸네일 리사이즈 트리거 + Azure Blob 동기화 ─────────
+# hotels/original/ prefix에 파일이 올라올 때만 image-resize Lambda 호출
 # hotels/thumbnails/ 에 저장해도 이벤트 발생 안 함 → 무한루프 방지
+#
+# s3-blob-sync는 image-resize와 같은 이벤트(hotels/original/ ObjectCreated)에
+# 중복 등록 시 "ambiguously defined" 오류가 나므로 겹치지 않는 범위만 구독:
+#  - hotels/thumbnails/ : 생성/삭제 모두 (image-resize가 만든 썸네일을 Blob에 반영)
+#  - hotels/original/   : 삭제만 (생성 시 Azure Blob 동기화는 image-resize Lambda가 함께 처리)
+#  - uploads/           : 생성/삭제 모두 (문의 첨부파일)
 resource "aws_s3_bucket_notification" "image_upload_trigger" {
   bucket = aws_s3_bucket.uploads.id
 
@@ -60,8 +66,29 @@ resource "aws_s3_bucket_notification" "image_upload_trigger" {
     filter_prefix       = "hotels/original/"
   }
 
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.s3_blob_sync.arn
+    events              = ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"]
+    filter_prefix       = "hotels/thumbnails/"
+  }
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.s3_blob_sync.arn
+    events              = ["s3:ObjectRemoved:*"]
+    filter_prefix       = "hotels/original/"
+  }
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.s3_blob_sync.arn
+    events              = ["s3:ObjectCreated:*", "s3:ObjectRemoved:*"]
+    filter_prefix       = "uploads/"
+  }
+
   # Lambda 리소스 정책(aws_lambda_permission)이 먼저 생성되어야 함
-  depends_on = [aws_lambda_permission.allow_s3_invoke_image_resize]
+  depends_on = [
+    aws_lambda_permission.allow_s3_invoke_image_resize,
+    aws_lambda_permission.allow_s3_invoke_blob_sync,
+  ]
 }
 
 # ── MySQL EC2 user_data용 스크립트 (S3 VPC 엔드포인트로 다운로드) ──────────────

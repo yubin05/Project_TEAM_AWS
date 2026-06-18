@@ -140,7 +140,9 @@ phases:
               { "name": "S3_IMAGES_BUCKET",     "value": "$S3_IMAGES_BUCKET" },
               { "name": "REVIEW_SERVICE_URL",   "value": "http://$ALB_DNS:3004" },
               { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
-              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" },
+              { "name": "SQS_ENDPOINT",         "value": "https://sqs.$AWS_DEFAULT_REGION.amazonaws.com/" },
+              { "name": "SQS_QUEUE_URL",        "value": "$RATING_QUEUE_URL" }
             ],
             "secrets": [
               { "name": "DB_PASSWORD",            "valueFrom": "$HOTEL_SECRET_ARN:DB_PASSWORD::" },
@@ -229,7 +231,9 @@ phases:
               { "name": "BOOKING_SERVICE_URL",  "value": "http://$ALB_DNS:3003" },
               { "name": "HOTEL_SERVICE_URL",    "value": "http://$ALB_DNS:3002" },
               { "name": "COGNITO_USER_POOL_ID", "value": "$COGNITO_USER_POOL_ID" },
-              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" }
+              { "name": "COGNITO_CLIENT_ID",    "value": "$COGNITO_CLIENT_ID" },
+              { "name": "SQS_ENDPOINT",         "value": "https://sqs.$AWS_DEFAULT_REGION.amazonaws.com/" },
+              { "name": "SQS_QUEUE_URL",        "value": "$RATING_QUEUE_URL" }
             ],
             "secrets": [
               { "name": "DB_PASSWORD",     "valueFrom": "$REVIEW_SECRET_ARN:DB_PASSWORD::" },

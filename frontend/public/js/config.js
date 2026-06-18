@@ -7,6 +7,9 @@ const SUPPORT_BASE = window.__SUPPORT_BASE__ || 'https://support-service.mangori
 // Azure Maps 키 (Azure Portal에서 도메인 제한 설정 필요)
 const AZURE_MAPS_KEY = window.__AZURE_MAPS_KEY__ || '';
 
+// 현재 배포 환경 표시 (Amplify 빌드 시 amplify.yml에서 'AWS'로 덮어씀)
+const CLOUD_PROVIDER = window.__CLOUD_PROVIDER__ || 'Azure';
+
 // v2
 
 // v2

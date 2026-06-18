@@ -40,7 +40,7 @@ export async function getWishlist(req: Request, res: Response): Promise<void> {
       JOIN hotels h ON w.hotel_id = h.id
       LEFT JOIN rooms r ON h.id = r.hotel_id AND r.is_available = 1
       WHERE w.user_id = ?
-      GROUP BY h.id
+      GROUP BY h.id, w.created_at
       ORDER BY w.created_at DESC
     `, [userId]);
 

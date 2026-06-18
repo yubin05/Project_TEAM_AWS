@@ -178,5 +178,8 @@ terraform-azure/*.tfvars
 # .local
 .local/
 
+# 운영 스크립트 (자격증명 포함 가능)
+scripts/
+
 # lambda
 # lambda/lambda_cw_transform.zip

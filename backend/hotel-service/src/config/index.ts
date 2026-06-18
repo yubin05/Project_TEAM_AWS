@@ -22,6 +22,14 @@ export const config = {
     translatorKey:      process.env.AZURE_TRANSLATOR_KEY      || '',
     translatorEndpoint: process.env.AZURE_TRANSLATOR_ENDPOINT || 'https://api.cognitive.microsofttranslator.com',
     translatorRegion:   process.env.AZURE_TRANSLATOR_REGION   || 'koreacentral',
+    blob: {
+      accountName: process.env.AZURE_STORAGE_ACCOUNT || '',
+      accountKey:  process.env.AZURE_STORAGE_KEY     || '',
+      containers: {
+        hotels:  'hotels',
+        uploads: 'uploads',
+      },
+    },
   },
   s3: {
     region:       process.env.AWS_REGION              || 'ap-northeast-2',

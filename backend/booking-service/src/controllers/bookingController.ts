@@ -214,11 +214,18 @@ export async function cancelBooking(req: Request, res: Response): Promise<void> 
 
 export async function getHostBookings(req: Request, res: Response): Promise<void> {
   try {
-    const hostId = req.user!.userId;
+    const { userId, role } = req.user!;
     const { status, page = 1, limit = 20 } = req.query;
 
-    let query  = `SELECT * FROM bookings WHERE host_id = ?`;
-    const params: (string | number)[] = [hostId];
+    // 관리자는 hotel-service의 /hotels/mine과 동일하게 모든 호스트의 예약을 조회
+    const params: (string | number)[] = [];
+    let query = `SELECT * FROM bookings`;
+    if (role === 'admin') {
+      query += ` WHERE 1=1`;
+    } else {
+      query += ` WHERE host_id = ?`;
+      params.push(userId);
+    }
 
     if (status) { query += ` AND status = ?`; params.push(status as string); }
     query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;

@@ -32,12 +32,13 @@ from datetime import datetime, timezone
 CATEGORY_MAP = [
     ('/aws/cloudtrail/',         'Audit'),
     ('/aws/dms/',                'Migration'),
+    ('dms-tasks-',               'Migration'),
     ('/threetier/vpc-flow-logs', 'Infrastructure'),
     ('/aws/rds/',                'Application'),
     ('/aws/apigateway/',         'Access'),
+    ('aws-waf-logs',             'Access'),
     ('/aws/lambda/',             'Application'),
     ('/ecs/',                    'Application'),
-    ('aws-waf-logs',             'Application'),
 ]
 
 LEVEL_RE = re.compile(r'\b(FATAL|CRITICAL|ERROR|WARN(?:ING)?|INFO|DEBUG|TRACE)\b', re.IGNORECASE)
@@ -50,6 +51,9 @@ def get_category(log_group):
     return 'Application'
 
 def get_service(log_group):
+    if '/aws/rds/cluster/' in log_group:
+        parts = log_group.split('/')
+        return parts[4] if len(parts) > 4 else parts[-1]
     return log_group.rstrip('/').split('/')[-1]
 
 def get_level(message):
@@ -64,11 +68,20 @@ def lambda_handler(event, context):
     for record in event['records']:
         raw = base64.b64decode(record['data'])
 
-        # ALB Lambda puts pre-formatted JSON directly to Firehose (not gzip)
         try:
             log_data = json.loads(gzip.decompress(raw))
         except (gzip.BadGzipFile, OSError):
-            output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': record['data']})
+            # gzip 해제 실패 시 category/service/level 필드를 추가해 분류되지 않는 로그 방지
+            try:
+                raw_doc = json.loads(raw)
+                if isinstance(raw_doc, dict) and 'category' not in raw_doc:
+                    raw_doc['category'] = 'Application'
+                    raw_doc.setdefault('service', 'unknown')
+                    raw_doc.setdefault('level', 'INFO')
+                encoded = base64.b64encode((json.dumps(raw_doc) + '\n').encode()).decode()
+                output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': encoded})
+            except Exception:
+                output.append({'recordId': record['recordId'], 'result': 'Ok', 'data': record['data']})
             continue
 
         if log_data.get('messageType') == 'CONTROL_MESSAGE':
@@ -292,6 +305,16 @@ resource "aws_cloudwatch_log_subscription_filter" "ecs_support_to_firehose" {
 resource "aws_cloudwatch_log_subscription_filter" "dms_task_to_firehose" {
   name            = "dms-task-to-firehose"
   log_group_name  = aws_cloudwatch_log_group.dms_task.name
+  filter_pattern  = ""
+  destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
+  role_arn        = aws_iam_role.cloudwatch_to_firehose.arn
+  depends_on      = [aws_iam_role_policy.cloudwatch_to_firehose]
+}
+
+# AWS Aurora → Azure MySQL CDC 복제 태스크 로그 (dms-tasks-dms-truck 로그 그룹)
+resource "aws_cloudwatch_log_subscription_filter" "dms_cdc_to_firehose" {
+  name            = "dms-cdc-to-firehose"
+  log_group_name  = "dms-tasks-${aws_dms_replication_instance.main.replication_instance_id}"
   filter_pattern  = ""
   destination_arn = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
   role_arn        = aws_iam_role.cloudwatch_to_firehose.arn

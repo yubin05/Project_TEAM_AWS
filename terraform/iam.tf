@@ -422,6 +422,48 @@ resource "aws_iam_role_policy" "slack_notifier_lambda_logs" {
   })
 }
 
+# ── Logging — ALB Log Processor Lambda ───────────────────────────────────────
+resource "aws_iam_role" "lambda_alb_log_processor" {
+  name = "ThreeTier-Lambda-ALBLogProcessor-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Lambda-ALBLogProcessor-Role", Project = "threetier" }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_alb_basic" {
+  role       = aws_iam_role.lambda_alb_log_processor.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy" "lambda_alb_log_processor" {
+  name = "ThreeTier-Lambda-ALBLogProcessor-Policy"
+  role = aws_iam_role.lambda_alb_log_processor.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:GetObject"]
+        Resource = "${aws_s3_bucket.logs.arn}/alb-access-logs/*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["firehose:PutRecordBatch"]
+        Resource = aws_kinesis_firehose_delivery_stream.logs_to_opensearch.arn
+      }
+    ]
+  })
+}
+
 # ── CodeBuild ─────────────────────────────────────────────────────────────────
 resource "aws_iam_role" "codebuild" {
   name = "ThreeTier-CodeBuild-Role"
@@ -648,11 +690,21 @@ data "aws_iam_policy_document" "lambda_image_resize_policy" {
       "${aws_s3_bucket.uploads.arn}/hotels/thumbnails/*"
     ]
   }
+
+  # ④ 원본을 Azure Blob에도 동기화하기 위한 Connection String 조회
+  statement {
+    sid     = "AllowGetAzureBlobSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      data.aws_secretsmanager_secret.azure_blob_connection_string.arn
+    ]
+  }
 }
 
 resource "aws_iam_policy" "lambda_image_resize_policy" {
   name        = "ThreeTier-Lambda-ImageResize-Policy"
-  description = "image-resize Lambda 최소 권한 (S3 원본 읽기 + 썸네일 쓰기 + CloudWatch)"
+  description = "image-resize Lambda 최소 권한 (S3 원본 읽기 + 썸네일 쓰기 + Azure Blob 동기화용 시크릿 읽기 + CloudWatch)"
   policy      = data.aws_iam_policy_document.lambda_image_resize_policy.json
   tags = {
     Name      = "ThreeTier-Lambda-ImageResize-Policy"
@@ -663,4 +715,134 @@ resource "aws_iam_policy" "lambda_image_resize_policy" {
 resource "aws_iam_role_policy_attachment" "lambda_image_resize" {
   role       = aws_iam_role.lambda_image_resize_role.name
   policy_arn = aws_iam_policy.lambda_image_resize_policy.arn
+}
+
+# ── s3-blob-sync Lambda 역할 ───────────────────────────────────────────────
+# 관련 파일: lambda_s3_blob_sync.tf, s3.tf
+
+data "aws_iam_policy_document" "lambda_s3_blob_sync_assume" {
+  statement {
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "lambda_s3_blob_sync_role" {
+  name               = "ThreeTier-Lambda-S3BlobSync-Role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_s3_blob_sync_assume.json
+  tags = {
+    Name      = "ThreeTier-Lambda-S3BlobSync-Role"
+    ManagedBy = "terraform"
+  }
+}
+
+data "aws_iam_policy_document" "lambda_s3_blob_sync_policy" {
+  # ① CloudWatch Logs — 실행 로그 기록
+  statement {
+    sid    = "AllowCloudWatchLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents"
+    ]
+    resources = [
+      "arn:aws:logs:${var.aws_region}:*:log-group:/aws/lambda/ThreeTier-S3-Blob-Sync:*"
+    ]
+  }
+
+  # ② S3 객체 읽기 (hotels/, uploads/ 경로만 허용)
+  statement {
+    sid     = "AllowS3GetObject"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.uploads.arn}/hotels/*",
+      "${aws_s3_bucket.uploads.arn}/uploads/*"
+    ]
+  }
+
+  # ③ Azure Blob Connection String 조회
+  statement {
+    sid     = "AllowGetAzureBlobSecret"
+    effect  = "Allow"
+    actions = ["secretsmanager:GetSecretValue"]
+    resources = [
+      data.aws_secretsmanager_secret.azure_blob_connection_string.arn
+    ]
+  }
+}
+
+resource "aws_iam_policy" "lambda_s3_blob_sync_policy" {
+  name        = "ThreeTier-Lambda-S3BlobSync-Policy"
+  description = "s3-blob-sync Lambda 최소 권한 (S3 읽기 + Azure Blob Secret 조회 + CloudWatch)"
+  policy      = data.aws_iam_policy_document.lambda_s3_blob_sync_policy.json
+  tags = {
+    Name      = "ThreeTier-Lambda-S3BlobSync-Policy"
+    ManagedBy = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_s3_blob_sync" {
+  role       = aws_iam_role.lambda_s3_blob_sync_role.name
+  policy_arn = aws_iam_policy.lambda_s3_blob_sync_policy.arn
+}
+
+# ── Pre Token Generation Lambda (lambda_pre_token_generation.tf) ─────────────
+resource "aws_iam_role" "lambda_pre_token_generation" {
+  name = "ThreeTier-Lambda-PreTokenGeneration-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Lambda-PreTokenGeneration-Role" }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_pre_token_generation_logs" {
+  role       = aws_iam_role.lambda_pre_token_generation.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# ── User Migration / Post Authentication Lambda 공용 역할 (lambda_user_migration.tf) ──
+# VPC ENI 관리 + CloudWatch Logs + Secrets 조회
+resource "aws_iam_role" "lambda_cognito_migration" {
+  name = "ThreeTier-Lambda-CognitoMigration-Role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+
+  tags = { Name = "ThreeTier-Lambda-CognitoMigration-Role" }
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_cognito_migration_vpc" {
+  role       = aws_iam_role.lambda_cognito_migration.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy" "lambda_cognito_migration_secrets" {
+  role = aws_iam_role.lambda_cognito_migration.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["secretsmanager:GetSecretValue"]
+      Resource = data.aws_secretsmanager_secret.auth.arn
+    }]
+  })
 }

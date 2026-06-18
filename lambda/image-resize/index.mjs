@@ -1,12 +1,28 @@
 import { S3Client, GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { BlobServiceClient } from '@azure/storage-blob';
 import sharp from 'sharp';
 
 const s3 = new S3Client({ region: process.env.AWS_REGION || 'ap-northeast-2' });
+const secretsManager = new SecretsManagerClient({ region: process.env.AWS_REGION || 'ap-northeast-2' });
 
 const THUMBNAIL_WIDTH  = parseInt(process.env.THUMBNAIL_WIDTH  || '400');
 const THUMBNAIL_HEIGHT = parseInt(process.env.THUMBNAIL_HEIGHT || '300');
 const ORIGINAL_PREFIX  = process.env.ORIGINAL_PREFIX  || 'hotels/original/';
 const THUMBNAIL_PREFIX = process.env.THUMBNAIL_PREFIX || 'hotels/thumbnails/';
+
+const CONNECTION_STRING_SECRET_ARN = process.env.AZURE_BLOB_CONNECTION_STRING_SECRET_ARN;
+
+// Lambda 컨테이너 재사용 시 매번 Secrets Manager를 호출하지 않도록 캐싱
+let blobServiceClientPromise;
+async function getBlobServiceClient() {
+  if (!blobServiceClientPromise) {
+    blobServiceClientPromise = secretsManager
+      .send(new GetSecretValueCommand({ SecretId: CONNECTION_STRING_SECRET_ARN }))
+      .then(({ SecretString }) => BlobServiceClient.fromConnectionString(SecretString));
+  }
+  return blobServiceClientPromise;
+}
 
 export const handler = async (event) => {
   for (const record of event.Records) {
@@ -53,5 +69,17 @@ export const handler = async (event) => {
     }));
 
     console.log(`Thumbnail saved: s3://${bucket}/${thumbnailKey} (${resizedBuffer.length} bytes)`);
+
+    // 원본을 Azure Blob hotels/original/ 에도 동기화
+    // (s3-blob-sync는 image-resize와의 충돌(ambiguous configuration)을 피하기 위해
+    //  hotels/original/ ObjectCreated를 구독하지 않으므로, 여기서 함께 업로드)
+    const blobServiceClient = await getBlobServiceClient();
+    const blobName = key.replace(ORIGINAL_PREFIX, 'original/');
+    const blockBlobClient = blobServiceClient.getContainerClient('hotels').getBlockBlobClient(blobName);
+    await blockBlobClient.upload(originalBuffer, originalBuffer.length, {
+      blobHTTPHeaders: { blobContentType: ContentType },
+    });
+
+    console.log(`Original synced to Azure Blob: hotels/${blobName} (${originalBuffer.length} bytes)`);
   }
 };
