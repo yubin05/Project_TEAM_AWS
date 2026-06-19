@@ -35,25 +35,41 @@ export const handler = async (event) => {
   const blobServiceClient = await getBlobServiceClient();
 
   for (const record of event.Records) {
+    // ex) "threetier-uploads"
     const bucket = record.s3.bucket.name;
+    
     // S3 key는 URL 인코딩되어 있음 (공백 → + → %20 등)
+    // ex) "hotels/original/hotel-1/photo.jpg"
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
-
+    
+    // ex) { container: "hotels", blobName: "original/hotel-1/photo.jpg" }
     const mapped = mapToBlob(key);
     if (!mapped) {
+      // hotels/, uploads/ 외 경로는 skip
+      // ex) "database/mysql_install.sh" → skip
       console.log(`Skip — no container mapping: ${key}`);
       continue;
     }
+
+    // container → "hotels" / blobName → "original/hotel-1/photo.jpg"
     const { container, blobName } = mapped;
+
+    // Azure Blob의 "hotels" 컨테이너 접근
     const containerClient = blobServiceClient.getContainerClient(container);
+
+    // Azure Blob의 "hotels/original/hotel-1/photo.jpg" 파일 지정
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
     if (record.eventName.startsWith('ObjectRemoved')) {
+      // S3에서 파일 삭제 이벤트 → Blob에서도 동일 파일 삭제
+      // ex) S3 hotels/original/hotel-1/photo.jpg 삭제 → Blob hotels/original/hotel-1/photo.jpg 삭제
       console.log(`Deleting: s3://${bucket}/${key} → blob ${container}/${blobName}`);
       await blockBlobClient.deleteIfExists();
       continue;
     }
 
+    // S3 파일 생성/수정 이벤트 → Blob에 업로드
+    // ex) s3://threetier-uploads/hotels/original/hotel-1/photo.jpg → blob hotels/original/hotel-1/photo.jpg
     console.log(`Syncing: s3://${bucket}/${key} → blob ${container}/${blobName}`);
 
     const { Body, ContentType } = await s3.send(
