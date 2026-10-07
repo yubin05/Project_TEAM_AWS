@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <mxfile host="app.diagrams.net" version="24.7.17">
   <diagram name="MULTI-CLOUD DISASTER RECOVERY" id="team-dr-blueprint">
-    <mxGraphModel dx="1400" dy="960" grid="1" gridSize="20" page="1" pageWidth="1400" pageHeight="960" background="#111c25">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="20" page="1" pageWidth="1400" pageHeight="1000" background="#111c25">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -215,42 +215,42 @@
           </mxGeometry>
         </mxCell>
         <mxCell id="v51" value="" style="shape=cube;fillColor=#172832;strokeColor=#efb75b;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="145" y="827" width="50" height="50" />
+          <mxGeometry as="geometry" x="145" y="866" width="50" height="50" />
         </mxCell>
         <mxCell id="v52" value="Amazon S3" style="text;html=0;strokeColor=none;fillColor=none;fontColor=#f1f6f8;fontSize=19;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="116.99000000000001" y="893" width="106.02" height="27" />
+          <mxGeometry as="geometry" x="116.99000000000001" y="932" width="106.02" height="27" />
         </mxCell>
         <mxCell id="v53" value="" style="shape=hexagon;fillColor=#172832;strokeColor=#e8eef2;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="675" y="827" width="50" height="50" />
+          <mxGeometry as="geometry" x="675" y="866" width="50" height="50" />
         </mxCell>
         <mxCell id="v54" value="Sync Lambda" style="text;html=0;strokeColor=none;fillColor=none;fontColor=#f1f6f8;fontSize=19;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="635.21" y="893" width="129.58" height="27" />
+          <mxGeometry as="geometry" x="635.21" y="932" width="129.58" height="27" />
         </mxCell>
         <mxCell id="v55" value="" style="shape=cube;fillColor=#172832;strokeColor=#77cce6;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="1185" y="827" width="50" height="50" />
+          <mxGeometry as="geometry" x="1185" y="866" width="50" height="50" />
         </mxCell>
         <mxCell id="v56" value="Blob Storage" style="text;html=0;strokeColor=none;fillColor=none;fontColor=#f1f6f8;fontSize=19;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="1139.32" y="893" width="141.35999999999999" height="27" />
+          <mxGeometry as="geometry" x="1139.32" y="932" width="141.35999999999999" height="27" />
         </mxCell>
         <mxCell id="e57" value="Object events" style="endArrow=block;html=0;strokeColor=#91aab7;strokeWidth=2;fontColor=#91aab7;fontSize=13;labelBackgroundColor=#111c25;" edge="1" parent="1">
           <mxGeometry as="geometry" relative="1">
-            <mxPoint as="sourcePoint" x="212" y="853" />
-            <mxPoint as="targetPoint" x="658" y="853" />
+            <mxPoint as="sourcePoint" x="212" y="892" />
+            <mxPoint as="targetPoint" x="658" y="892" />
             <Array as="points" />
           </mxGeometry>
         </mxCell>
         <mxCell id="v58" value="Object events" style="text;html=0;strokeColor=none;fillColor=none;fontColor=#91aab7;fontSize=13;fontStyle=0;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="382.61" y="826.0" width="104.78" height="21" />
+          <mxGeometry as="geometry" x="382.61" y="865.0" width="104.78" height="21" />
         </mxCell>
         <mxCell id="e59" value="Upload / delete sync" style="endArrow=block;html=0;strokeColor=#91aab7;strokeWidth=2;fontColor=#91aab7;fontSize=13;labelBackgroundColor=#111c25;" edge="1" parent="1">
           <mxGeometry as="geometry" relative="1">
-            <mxPoint as="sourcePoint" x="742" y="853" />
-            <mxPoint as="targetPoint" x="1168" y="853" />
+            <mxPoint as="sourcePoint" x="742" y="892" />
+            <mxPoint as="targetPoint" x="1168" y="892" />
             <Array as="points" />
           </mxGeometry>
         </mxCell>
         <mxCell id="v60" value="Upload / delete sync" style="text;html=0;strokeColor=none;fillColor=none;fontColor=#91aab7;fontSize=13;fontStyle=0;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry as="geometry" x="874.4" y="826.0" width="161.2" height="21" />
+          <mxGeometry as="geometry" x="874.4" y="865.0" width="161.2" height="21" />
         </mxCell>
       </root>
     </mxGraphModel>
