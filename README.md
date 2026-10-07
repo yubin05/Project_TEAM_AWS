@@ -7,9 +7,9 @@
 
 ## 아키텍처
 
-![아키텍처 — 정면 입체 스타일](docs/diagrams/team-dr-front3d.svg)
+![아키텍처 — 기울임 입체 스타일](docs/diagrams/team-dr-isometric.svg)
 
-[draw.io 편집 파일](docs/diagrams/team-dr-front3d.drawio)
+[draw.io 편집 파일](docs/diagrams/team-dr-isometric.drawio)
 
 ### 멀티클라우드 DR 구성
 
