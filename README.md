@@ -7,9 +7,9 @@
 
 ## 아키텍처
 
-![아키텍처 — Dark blueprint](docs/diagrams/team-dr-blueprint-v3.svg)
+![아키텍처 — 정면 입체 스타일](docs/diagrams/team-dr-front3d.svg)
 
-[draw.io 편집 파일](docs/diagrams/team-dr-blueprint.drawio)
+[draw.io 편집 파일](docs/diagrams/team-dr-front3d.drawio)
 
 ### 멀티클라우드 DR 구성
 
