@@ -7,7 +7,7 @@
 
 ## 아키텍처
 
-![아키텍처 — Dark blueprint](docs/diagrams/team-dr-blueprint.svg?rev=3)
+![아키텍처 — Dark blueprint](docs/diagrams/team-dr-blueprint-v3.svg)
 
 [draw.io 편집 파일](docs/diagrams/team-dr-blueprint.drawio)
 
