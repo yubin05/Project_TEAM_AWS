@@ -1,11 +1,49 @@
 # AI 여행 예약 플랫폼 — Project TEAM AWS
 
 야놀자 스타일의 여행 및 숙박 예약 플랫폼.  
-모놀리식 백엔드를 **4개 마이크로서비스**로 분리한 구조입니다.
+모놀리식 백엔드를 **5개 마이크로서비스**로 분리한 구조입니다.
 
 ---
 
 ## 아키텍처
+
+### 멀티클라우드 DR 구성
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"14px","primaryColor":"#eef6f7","primaryTextColor":"#163647","primaryBorderColor":"#659a9f","lineColor":"#64808b","secondaryColor":"#f1f5f9","tertiaryColor":"#f8fafc","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","actorBkg":"#163647","actorBorder":"#163647","actorTextColor":"#ffffff","actorLineColor":"#94a3b8","signalColor":"#476673","signalTextColor":"#163647","labelBoxBkgColor":"#eef6f7","labelBoxBorderColor":"#659a9f","labelTextColor":"#163647","activationBkgColor":"#d3eeea","activationBorderColor":"#0f766e","sequenceNumberColor":"#ffffff"},"flowchart":{"curve":"linear","nodeSpacing":30,"rankSpacing":40},"sequence":{"mirrorActors":false,"actorMargin":35,"messageMargin":30}}}%%
+flowchart LR
+    DNS("Route 53<br/>HTTPS health check")
+    subgraph AWS["AWS · PRIMARY"]
+        A("Amplify") --> AG("API Gateway<br/>VPC Link · ALB") --> ECS("ECS Fargate<br/>5 services") --> DB("Aurora MySQL")
+    end
+    subgraph Azure["AZURE · SECONDARY"]
+        Z("Static Web Apps") --> AP("API Management") --> ACA("Container Apps<br/>5 services") --> ZDB("MySQL<br/>Flexible Server")
+    end
+    DNS -->|정상 시| A
+    DNS -.->|AWS 장애 시| Z
+    classDef aws fill:#163647,stroke:#163647,color:#ffffff,stroke-width:1px;
+    classDef azure fill:#0f766e,stroke:#0f766e,color:#ffffff,stroke-width:1px;
+    classDef neutral fill:#eef6f7,stroke:#659a9f,color:#163647,stroke-width:1px;
+    class A,AG,ECS,DB aws;
+    class Z,AP,ACA,ZDB azure;
+    class DNS neutral;
+```
+
+Route 53의 Primary/Secondary 프론트엔드 전환 구성과 각 클라우드의 API 경로를 요약했습니다. 헬스체크 대상은 AWS 프론트엔드이며, 백엔드 장애 전체를 감지하는 구성은 아닙니다.
+
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"14px","primaryColor":"#eef6f7","primaryTextColor":"#163647","primaryBorderColor":"#659a9f","lineColor":"#64808b","secondaryColor":"#f1f5f9","tertiaryColor":"#f8fafc","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","actorBkg":"#163647","actorBorder":"#163647","actorTextColor":"#ffffff","actorLineColor":"#94a3b8","signalColor":"#476673","signalTextColor":"#163647","labelBoxBkgColor":"#eef6f7","labelBoxBorderColor":"#659a9f","labelTextColor":"#163647","activationBkgColor":"#d3eeea","activationBorderColor":"#0f766e","sequenceNumberColor":"#ffffff"},"flowchart":{"curve":"linear","nodeSpacing":30,"rankSpacing":40},"sequence":{"mirrorActors":false,"actorMargin":35,"messageMargin":30}}}%%
+flowchart LR
+    DB("Aurora MySQL") --> DMS("AWS DMS<br/>Full Load + CDC") --> ZDB("Azure MySQL")
+    S3("Amazon S3") --> Sync("Lambda<br/>Object event sync") --> Blob("Azure Blob Storage")
+    classDef aws fill:#163647,stroke:#163647,color:#ffffff,stroke-width:1px;
+    classDef azure fill:#0f766e,stroke:#0f766e,color:#ffffff,stroke-width:1px;
+    classDef neutral fill:#eef6f7,stroke:#659a9f,color:#163647,stroke-width:1px;
+    class DB,S3,DMS,Sync aws;
+    class ZDB,Blob azure;
+```
+
+데이터베이스는 DMS를 통해 AWS → Azure로 복제하고, 이미지·첨부파일은 S3 이벤트를 처리하는 Lambda가 Blob Storage로 동기화합니다. DMS 복제 리소스는 Azure MySQL 연결 변수 설정 시 생성됩니다. 위 구성도는 저장소 정의를 기준으로 하며 실제 배포 상태나 복구 시간 측정 결과를 나타내지는 않습니다.
 
 ### EC2 배포 구조 (로컬 테스트)
 
@@ -26,36 +64,32 @@
 [MySQL EC2 :3306]  ── 4개 DB (auth_db / hotel_db / booking_db / review_db)
 ```
 
-### AWS 배포 구조 (현재)
+### AWS 서비스 구성
 
+```mermaid
+%%{init: {"theme":"base","themeVariables":{"fontFamily":"Arial, sans-serif","fontSize":"14px","primaryColor":"#eef6f7","primaryTextColor":"#163647","primaryBorderColor":"#659a9f","lineColor":"#64808b","secondaryColor":"#f1f5f9","tertiaryColor":"#f8fafc","clusterBkg":"#f8fafc","clusterBorder":"#cbd5e1","edgeLabelBackground":"#ffffff","actorBkg":"#163647","actorBorder":"#163647","actorTextColor":"#ffffff","actorLineColor":"#94a3b8","signalColor":"#476673","signalTextColor":"#163647","labelBoxBkgColor":"#eef6f7","labelBoxBorderColor":"#659a9f","labelTextColor":"#163647","activationBkgColor":"#d3eeea","activationBorderColor":"#0f766e","sequenceNumberColor":"#ffffff"},"flowchart":{"curve":"linear","nodeSpacing":30,"rankSpacing":40},"sequence":{"mirrorActors":false,"actorMargin":35,"messageMargin":30}}}%%
+flowchart LR
+    Web("Browser") --> Amp("Amplify<br/>Frontend")
+    Web --> Gateway("API Gateway")
+    Gateway -->|VPC Link| ALB("Internal ALB")
+    subgraph ECS["ECS FARGATE · MICROSERVICES"]
+        Auth("Auth<br/>3001")
+        Hotel("Hotel<br/>3002")
+        Booking("Booking<br/>3003")
+        Review("Review<br/>3004")
+        Support("Support<br/>3005")
+    end
+    ALB --> Auth & Hotel & Booking & Review & Support
+    Auth & Hotel & Booking & Review & Support --> DB("Aurora MySQL<br/>Service databases")
+    classDef aws fill:#163647,stroke:#163647,color:#ffffff,stroke-width:1px;
+    classDef azure fill:#0f766e,stroke:#0f766e,color:#ffffff,stroke-width:1px;
+    classDef neutral fill:#eef6f7,stroke:#659a9f,color:#163647,stroke-width:1px;
+    class Amp,Gateway,ALB aws;
+    class Auth,Hotel,Booking,Review,Support azure;
+    class Web,DB neutral;
 ```
-사용자
-  │
-  ├── Amplify (프론트엔드 CDN + GitHub 자동 배포)
-  │
-  └── WAF
-        ↓
-   API Gateway (HTTP API)
-   ├── Cognito JWT Authorizer
-   ├── /auth/*       → auth-service
-   ├── /hotels/*     → hotel-service
-   ├── /bookings/*   → booking-service
-   └── /reviews/*    → review-service
-        ↓ (VPC Link)
-       ALB (internal)
-        ↓
-   ECS Fargate
-   ├── auth-service    :3001
-   ├── hotel-service   :3002
-   ├── booking-service :3003
-   └── review-service  :3004
-        ↓
-   RDS MySQL / DynamoDB / SQS / S3 / Bedrock
 
-   SQS booking-queue → Lambda ──→ SES (예약 확정 이메일)
-   S3 업로드 이벤트  → Lambda ──→ S3 (썸네일 리사이즈)
-   Cognito 회원가입  → Lambda ──→ RDS auth_db (유저 프로필 초기화)
-```
+5개 서비스(auth · hotel · booking · review · support)는 각자의 데이터베이스를 사용합니다. API 진입점, ECS 서비스 및 Aurora 구성은 현재 Terraform 정의를 기준으로 정리했습니다.
 
 ### 서비스 간 통신
 
